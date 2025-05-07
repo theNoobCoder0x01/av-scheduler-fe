@@ -19,9 +19,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { scheduler } from "@/lib/scheduler";
 import { ActionType, ICalendarEvent, ScheduledAction } from "@/lib/types";
 import { controlVlc } from "@/lib/vlc-controller";
+import { ScheduledActionService } from "@/services/scheduler.service";
 import { format } from "date-fns";
 import {
   Calendar,
@@ -29,6 +29,7 @@ import {
   Pause,
   Play,
   Plus,
+  RefreshCw,
   Repeat,
   Square,
   Trash2,
@@ -50,86 +51,121 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   const [isExecuting, setIsExecuting] = useState(false);
   const { toast } = useToast();
 
-  // Load saved schedules
-  useEffect(() => {
-    setScheduledActions(scheduler.getSchedules());
-  }, []);
-
-  // Clear all schedules when component unmounts
-  useEffect(() => {
-    return () => {
-      scheduler.clearAllSchedules();
-    };
-  }, []);
-
-  const handleAddAction = () => {
-    if (!actionTime) {
+  // Fetch schedules from the server
+  const fetchSchedules = async () => {
+    try {
+      const response = await ScheduledActionService.getAllScheduledActions();
+      setScheduledActions(response);
+    } catch (error) {
+      console.error("Error fetching schedules:", error);
       toast({
-        title: "Missing information",
-        description: "Please specify a time for the action",
+        title: "Error fetching schedules",
+        description: "Failed to load scheduled actions.",
         variant: "destructive",
       });
-      return;
     }
+  };
 
-    let newAction: ScheduledAction = {
-      actionType,
-      time: actionTime,
-      isDaily,
-    };
+  const handleReloadAction = async () => {
+    fetchSchedules();
+  };
 
-    if (!isDaily && selectedEvent) {
-      const event = events.find((e) => e.uid === selectedEvent);
-      if (!event) return;
-
-      // Create date object based on event date and action time
-      const [hours, minutes] = actionTime.split(":").map(Number);
-      let actionDate: number | Date = new Date(event.start);
-      actionDate.setHours(hours, minutes, 0, 0);
-      actionDate = Math.floor(actionDate.getTime() / 1000); // Convert to seconds
-      // Validate time is within event duration
-      if (actionDate < event.start || actionDate > event.end) {
+  const handleAddAction = async () => {
+    try {
+      if (!actionTime) {
         toast({
-          title: "Invalid time",
-          description: "The action time must be within the event's duration",
+          title: "Missing information",
+          description: "Please specify a time for the action",
           variant: "destructive",
         });
         return;
       }
 
-      newAction = {
-        ...newAction,
-        eventId: event.uid,
-        eventName: event.summary,
-        date: new Date(actionDate * 1000),
+      let newAction: ScheduledAction = {
+        actionType,
+        time: actionTime,
+        isDaily,
       };
+
+      if (!isDaily && selectedEvent) {
+        const event = events.find((e) => e.uid === selectedEvent);
+        if (!event) return;
+
+        // Create date object based on event date and action time
+        const [hours, minutes] = actionTime.split(":").map(Number);
+        let actionDate: number | Date = new Date(event.start);
+        actionDate.setHours(hours, minutes, 0, 0);
+        actionDate = Math.floor(actionDate.getTime() / 1000); // Convert to seconds
+        // Validate time is within event duration
+        if (actionDate < event.start || actionDate > event.end) {
+          toast({
+            title: "Invalid time",
+            description: "The action time must be within the event's duration",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        newAction = {
+          ...newAction,
+          eventId: event.uid,
+          eventName: event.summary,
+          date: new Date(actionDate * 1000),
+        };
+      }
+
+      // Schedule the action
+      let response = await ScheduledActionService.createAction(newAction);
+
+      console.log("Scheduled action response", response);
+      fetchSchedules();
+
+      toast({
+        title: "Action scheduled",
+        description: isDaily
+          ? `Daily ${actionType} action scheduled for ${actionTime}`
+          : `${actionType} action scheduled for ${newAction.eventName} at ${actionTime}`,
+      });
+    } catch (err) {
+      console.error("Error scheduling action:", err);
+      toast({
+        title: "Error scheduling action",
+        description: "Failed to schedule the action.",
+        variant: "destructive",
+      });
     }
-
-    // Schedule the action
-    scheduler.scheduleAction(newAction);
-    setScheduledActions(scheduler.getSchedules());
-
-    toast({
-      title: "Action scheduled",
-      description: isDaily
-        ? `Daily ${actionType} action scheduled for ${actionTime}`
-        : `${actionType} action scheduled for ${newAction.eventName} at ${actionTime}`,
-    });
   };
 
-  const handleRemoveAction = (index: number) => {
+  const handleRemoveAction = async (index: number) => {
     const action = scheduledActions[index];
-    const scheduleId = action.isDaily
-      ? `daily-${action.actionType}-${action.time}`
-      : `${action.eventId}-${action.actionType}-${action.date?.getTime()}`;
+    console.log("Removing action", action);
 
-    scheduler.removeSchedule(scheduleId);
-    setScheduledActions(scheduler.getSchedules());
+    const scheduleId = action.id;
+    if (!scheduleId) {
+      toast({
+        title: "Error",
+        description: "Failed to remove the action",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    toast({
-      title: "Action removed",
-      description: "The scheduled action has been removed",
-    });
+    try {
+      await ScheduledActionService.deleteAction(scheduleId);
+      toast({
+        title: "Action removed",
+        description: "The scheduled action has been removed",
+      });
+      fetchSchedules();
+    } catch (error) {
+      console.error("Error removing action:", error);
+      toast({
+        title: "Error removing action",
+        description: "Failed to remove the scheduled action.",
+        variant: "destructive",
+      });
+      return;
+    }
   };
 
   const executeAction = async (action: ScheduledAction) => {
@@ -155,12 +191,25 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     }
   };
 
+  useEffect(() => {
+    fetchSchedules();
+  }, []);
+
   return (
     <div className="space-y-8">
       {/* Action Creator */}
       <Card>
         <CardHeader>
-          <CardTitle>Schedule Media Actions</CardTitle>
+          <CardTitle>
+            <div className="flex items-center justify-between">
+              <div>Schedule Media Actions</div>
+              <div>
+                <Button onClick={handleReloadAction} size="icon">
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

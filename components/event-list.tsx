@@ -8,17 +8,24 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
+import { useAppDispatch } from "@/lib/store/hooks";
+import { setEvents } from "@/lib/store/slices/eventsSlice";
 import { ICalendarEvent } from "@/lib/types";
 import { isFullDayEvent } from "@/lib/utils";
+import { CalendarEventService } from "@/services/calendar-event.service";
 import { format } from "date-fns";
 import { Calendar, Clock, MapPin, Search } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface EventListProps {
   events: ICalendarEvent[];
 }
 
 export default function EventList({ events }: EventListProps) {
+  const { toast } = useToast();
+  const dispatch = useAppDispatch();
+
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredEvents = events.filter(
@@ -27,6 +34,21 @@ export default function EventList({ events }: EventListProps) {
       event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       event.location?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const fetchEvents = useCallback(async () => {
+    try {
+      const response = await CalendarEventService.getAllCalendarEvents();
+      console.log("response events", response);
+      
+      dispatch(setEvents(response));
+    } catch (err) {
+      toast({
+        title: "Error fetching events",
+        description: "Failed to fetch events from the server.",
+        variant: "destructive",
+      });
+    }
+  }, [dispatch, toast]);
 
   const formatDate = (date: number | Date) => {
     if (typeof date === "number") {
@@ -49,16 +71,74 @@ export default function EventList({ events }: EventListProps) {
     return Math.floor(date.getTime() / 1000);
   };
 
+  const handleSaveEvents = async () => {
+    try {
+      let response = await CalendarEventService.createCalendarEvents(
+        events
+          .filter((calendarEvent) => !Boolean(calendarEvent.id?.toString()?.length))
+          .map((calendarEvent) => ({
+            summary: calendarEvent.summary,
+            start: calendarEvent.start,
+            end: calendarEvent.end,
+            description: calendarEvent.description,
+            location: calendarEvent.location,
+            uid: calendarEvent.uid,
+            rawString: JSON.stringify(calendarEvent),
+          }))
+      );
+
+      if (response.length > 0) {
+        toast({
+          title: "Events saved successfully",
+          description: "All unsaved events have been saved.",
+          variant: "default",
+        });
+        fetchEvents();
+      } else {
+        toast({
+          title: "No new events to save",
+          description: "All events are already saved.",
+          variant: "default",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error saving events",
+        description: "Failed to save events to the server.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
   return (
     <div className="space-y-6">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search events..."
-          className="pl-10"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="flex items-center justify-between space-x-4">
+        <div className="grow relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search events..."
+            className="pl-10"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        {events.some(
+          (calendarEvent: ICalendarEvent) => !Boolean(calendarEvent.id?.toString()?.length)
+        ) && (
+          <p className="text-sm text-muted-foreground">
+            Some events are not saved in the database.{" "}
+            <a
+              className="font-semibold cursor-pointer text-[#dddddd] hover:underline hover:text-[#ffffff]"
+              onClick={handleSaveEvents}
+            >
+              Click to save events
+            </a>
+          </p>
+        )}
       </div>
 
       {filteredEvents.length === 0 && (

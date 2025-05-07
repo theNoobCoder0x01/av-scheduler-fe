@@ -6,15 +6,16 @@ import { useToast } from "@/hooks/use-toast";
 import { parseIcsFile } from "@/lib/ics-parser";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { setEvents } from "@/lib/store/slices/eventsSlice";
+import { ICalendarEvent } from "@/lib/types";
 import { isFullDayEvent } from "@/lib/utils";
 import { FileText, Upload } from "lucide-react";
 import { useState } from "react";
 
 interface FileUploaderProps {
-  onEventsLoaded: () => void;
+  events: ICalendarEvent[];
 }
 
-export default function FileUploader({ onEventsLoaded }: FileUploaderProps) {
+export default function FileUploader({ events }: FileUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,9 +65,9 @@ export default function FileUploader({ onEventsLoaded }: FileUploaderProps) {
 
     setIsLoading(true);
     try {
-      let events = await parseIcsFile(file);
-      console.log("Parsed events:", events);
-      events = events.map((event) => {
+      let parsedEvents = await parseIcsFile(file);
+      console.log("Parsed events:", parsedEvents);
+      parsedEvents = parsedEvents.map((event) => {
         const startDate = new Date(event.start);
         const endDate = new Date(event.end);
         const startEpoch = Math.floor(startDate.getTime() / 1000);
@@ -79,11 +80,17 @@ export default function FileUploader({ onEventsLoaded }: FileUploaderProps) {
         };
       });
 
-      dispatch(setEvents(events));
-      onEventsLoaded();
+      let uidSetEvents = new Set([...events.map((e) => e.uid)]);
+
+      dispatch(
+        setEvents([
+          ...parsedEvents.filter((pe) => !uidSetEvents.has(pe.uid)),
+          ...events,
+        ])
+      );
       toast({
         title: "Calendar loaded",
-        description: `${events.length} events found`,
+        description: `${parsedEvents.length} events found`,
         variant: "default",
       });
     } catch (error) {

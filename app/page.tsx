@@ -1,6 +1,7 @@
-import { Calendar } from "lucide-react";
+"use client";
 import Header from "@/components/header";
 import MainView from "@/components/main-view";
+import { Calendar } from "lucide-react";
 
 export default function Home() {
   return (

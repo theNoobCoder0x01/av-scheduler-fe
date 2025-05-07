@@ -1,20 +1,22 @@
-"use client";
-
-import { ScheduledAction, ActionType } from '@/lib/types';
-import { controlVlc } from '@/lib/vlc-controller';
-import { storage } from './storage';
+import { ScheduledAction } from "@/lib/types";
+import { controlVlc } from "@/lib/vlc-controller";
+import { ScheduledActionService } from "@/services/scheduler.service";
 
 class Scheduler {
   private static instance: Scheduler;
   private schedules: Map<string, NodeJS.Timeout>;
   private dailySchedules: Map<string, NodeJS.Timeout>;
-  private activeSchedules: ScheduledAction[];
+  private _activeSchedules: ScheduledAction[] = [];
+  public get activeSchedules(): ScheduledAction[] {
+    return this._activeSchedules;
+  }
+  public set activeSchedules(value: ScheduledAction[]) {
+    this._activeSchedules = value;
+  }
 
   private constructor() {
     this.schedules = new Map();
     this.dailySchedules = new Map();
-    this.activeSchedules = storage.loadSchedules();
-    this.initializeSchedules();
   }
 
   public static getInstance(): Scheduler {
@@ -24,20 +26,13 @@ class Scheduler {
     return Scheduler.instance;
   }
 
-  private initializeSchedules(): void {
-    this.activeSchedules.forEach(action => {
+  public async initializeSchedules(): Promise<void> {
+    this.activeSchedules.forEach((action) => {
       this.scheduleAction(action);
     });
   }
 
-  public getSchedules(): ScheduledAction[] {
-    return this.activeSchedules;
-  }
-
-  public scheduleAction(action: ScheduledAction): void {
-    this.activeSchedules.push(action);
-    storage.saveSchedules(this.activeSchedules);
-
+  public async scheduleAction(action: ScheduledAction): Promise<void> {
     if (action.isDaily) {
       this.scheduleDailyAction(action);
     } else if (action.date) {
@@ -45,41 +40,23 @@ class Scheduler {
     }
   }
 
-  public removeSchedule(scheduleId: string): void {
-    // Clear one-time schedule
-    if (this.schedules.has(scheduleId)) {
-      clearTimeout(this.schedules.get(scheduleId));
-      this.schedules.delete(scheduleId);
-    }
-    
-    // Clear daily schedule
-    if (this.dailySchedules.has(scheduleId)) {
-      clearInterval(this.dailySchedules.get(scheduleId));
-      this.dailySchedules.delete(scheduleId);
-    }
-
-    // Remove from active schedules
-    this.activeSchedules = this.activeSchedules.filter(action => {
-      const actionId = action.isDaily
-        ? `daily-${action.actionType}-${action.time}`
-        : `${action.eventId}-${action.actionType}-${action.date?.getTime()}`;
-      return actionId !== scheduleId;
-    });
-    storage.saveSchedules(this.activeSchedules);
+  public async removeSchedule(scheduleId: string): Promise<void> {
+    await ScheduledActionService.deleteAction(scheduleId);
+    this.clearAllSchedules();
+    await this.initializeSchedules();
   }
 
   public clearAllSchedules(): void {
     // Clear one-time schedules
-    this.schedules.forEach(timeout => clearTimeout(timeout));
+    this.schedules.forEach((timeout) => clearTimeout(timeout));
     this.schedules.clear();
 
     // Clear daily schedules
-    this.dailySchedules.forEach(interval => clearInterval(interval));
+    this.dailySchedules.forEach((interval) => clearInterval(interval));
     this.dailySchedules.clear();
 
     // Clear active schedules
     this.activeSchedules = [];
-    storage.saveSchedules(this.activeSchedules);
   }
 
   private scheduleOneTimeAction(action: ScheduledAction): void {
@@ -91,8 +68,8 @@ class Scheduler {
 
     if (delay < 0) return; // Don't schedule past actions
 
-    const scheduleId = `${action.eventId}-${action.actionType}-${scheduledTime.getTime()}`;
-    
+    const scheduleId = `${action.id}`;
+
     const timeout = setTimeout(async () => {
       await this.executeAction(action);
       this.removeSchedule(scheduleId);
@@ -102,7 +79,7 @@ class Scheduler {
   }
 
   private scheduleDailyAction(action: ScheduledAction): void {
-    const [hours, minutes] = action.time.split(':').map(Number);
+    const [hours, minutes] = action.time.split(":").map(Number);
     const scheduleId = `daily-${action.actionType}-${action.time}`;
 
     // Calculate initial delay
@@ -119,7 +96,7 @@ class Scheduler {
     // Schedule initial execution
     setTimeout(() => {
       this.executeAction(action);
-      
+
       // Set up daily interval
       const interval = setInterval(() => {
         this.executeAction(action);
@@ -130,12 +107,32 @@ class Scheduler {
   }
 
   private async executeAction(action: ScheduledAction): Promise<void> {
-    console.log('Executing scheduled action:', action);
-    
+    console.log("Executing scheduled action:", action);
+    if (!action.actionType) {
+      console.error("No action type specified");
+      return;
+    }
+
+    if (!action.id) {
+      console.error("No action ID specified");
+      return;
+    }
+
     try {
       await controlVlc(action.actionType, action.eventName);
+      console.log("Action executed successfully:", action.actionType);
+
+      // Update the last_run and next_run fields in the database
+      const now = Math.floor(Date.now() / 1000);
+      await ScheduledActionService.patchAction(action.id, {
+        lastRun: now,
+        nextRun: action.isDaily
+          ? now + 24 * 60 * 60 // Next run in 24 hours
+          : undefined, // No next run for one-time actions
+        id: action.id,
+      });
     } catch (error) {
-      console.error('Failed to execute scheduled action:', error);
+      console.error("Failed to execute scheduled action:", error);
     }
   }
 }
