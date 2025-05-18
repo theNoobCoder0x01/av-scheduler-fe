@@ -1,4 +1,3 @@
-import { ScheduledAction } from "./types";
 
 export class WebSocketService {
   private static instance: WebSocket | null = null;
@@ -6,13 +5,13 @@ export class WebSocketService {
 
   static connect() {
     if (!this.instance) {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.hostname}/ws`;
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.hostname}:8082/ws`;
       this.instance = new WebSocket(wsUrl);
 
       this.instance.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        this.listeners.forEach(listener => listener(data));
+        this.listeners.forEach((listener) => listener(data));
       };
 
       this.instance.onclose = () => {

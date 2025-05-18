@@ -90,29 +90,36 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
       if (!isDaily && selectedEvent) {
         const event = events.find((e) => e.uid === selectedEvent);
         if (!event) return;
+        if (typeof event.start === "number" && typeof event.end === "number") {
+          // Create date object based on event date and action time
+          const [hours, minutes] = actionTime.split(":").map(Number);
+          let actionDate: number | Date = new Date(
+            (event.start as number) * 1000
+          );
+          actionDate.setHours(hours, minutes, 0, 0);
+          // Convert to seconds
+          const actionDateSeconds = Math.floor(actionDate.getTime() / 1000);
+          // Validate time is within event duration
+          if (
+            actionDateSeconds < event.start ||
+            actionDateSeconds > event.end
+          ) {
+            toast({
+              title: "Invalid time",
+              description:
+                "The action time must be within the event's duration",
+              variant: "destructive",
+            });
+            return;
+          }
 
-        // Create date object based on event date and action time
-        const [hours, minutes] = actionTime.split(":").map(Number);
-        let actionDate: number | Date = new Date(event.start * 1000);
-        actionDate.setHours(hours, minutes, 0, 0);
-        // Convert to seconds
-        const actionDateSeconds = Math.floor(actionDate.getTime() / 1000);
-        // Validate time is within event duration
-        if (actionDateSeconds < event.start || actionDateSeconds > event.end) {
-          toast({
-            title: "Invalid time",
-            description: "The action time must be within the event's duration",
-            variant: "destructive",
-          });
-          return;
+          newAction = {
+            ...newAction,
+            eventId: event.uid,
+            eventName: event.summary,
+            date: actionDate,
+          };
         }
-
-        newAction = {
-          ...newAction,
-          eventId: event.uid,
-          eventName: event.summary,
-          date: actionDate,
-        };
       }
 
       // Schedule the action
@@ -266,8 +273,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                     <SelectContent>
                       {events.map((event) => (
                         <SelectItem key={event.uid} value={event.uid}>
-                          {event.summary} ({format(event.start * 1000, "MMM d")}
-                          )
+                          {event.summary} (
+                          {format((event.start as number) * 1000, "MMM d")})
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -11,7 +11,7 @@ const VLC_PATH =
 
 // VLC HTTP Interface configuration
 const VLC_HTTP_HOST = "localhost";
-const VLC_HTTP_PORT = 8082;
+const VLC_HTTP_PORT = 8083;
 const VLC_HTTP_PASSWORD = "vlc"; // Default VLC password
 const USE_HTTP_INTERFACE = true; // Toggle between HTTP and CLI control
 
@@ -31,8 +31,8 @@ async function getCurrentEvent(): Promise<ICalendarEvent | undefined> {
   }
 
   return (data as ICalendarEvent[]).find((event) => {
-    const eventStart = event.start;
-    const eventEnd = event.end;
+    const eventStart = typeof event.start === "number" ? event.start : 0;
+    const eventEnd = typeof event.end === "number" ? event.end : 0;
     const now = Math.floor(new Date().getTime() / 1000) - 365 * 24 * 60 * 60;
     return now >= eventStart && now <= eventEnd;
   });

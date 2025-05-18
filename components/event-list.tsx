@@ -39,7 +39,7 @@ export default function EventList({ events }: EventListProps) {
     try {
       const response = await CalendarEventService.getAllCalendarEvents();
       console.log("response events", response);
-      
+
       dispatch(setEvents(response));
     } catch (err) {
       toast({
@@ -75,7 +75,9 @@ export default function EventList({ events }: EventListProps) {
     try {
       let response = await CalendarEventService.createCalendarEvents(
         events
-          .filter((calendarEvent) => !Boolean(calendarEvent.id?.toString()?.length))
+          .filter(
+            (calendarEvent) => !Boolean(calendarEvent.id?.toString()?.length)
+          )
           .map((calendarEvent) => ({
             summary: calendarEvent.summary,
             start: calendarEvent.start,
@@ -127,7 +129,8 @@ export default function EventList({ events }: EventListProps) {
           />
         </div>
         {events.some(
-          (calendarEvent: ICalendarEvent) => !Boolean(calendarEvent.id?.toString()?.length)
+          (calendarEvent: ICalendarEvent) =>
+            !Boolean(calendarEvent.id?.toString()?.length)
         ) && (
           <p className="text-sm text-muted-foreground">
             Some events are not saved in the database.{" "}
@@ -153,10 +156,59 @@ export default function EventList({ events }: EventListProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-2">
+                  <CardHeader className="relative pb-2">
                     <CardTitle className="line-clamp-2 text-lg">
                       {event.summary}
                     </CardTitle>
+                    <div className="absolute top-[0.75rem] right-[0.75rem] flex justify-between items-center">
+                      {event.id ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            CalendarEventService.deleteCalendarEvent(
+                              event.id ?? ""
+                            )
+                              .then(() => {
+                                toast({
+                                  title: "Event deleted",
+                                  description:
+                                    "The event has been removed successfully.",
+                                  variant: "default",
+                                });
+                                fetchEvents();
+                              })
+                              .catch(() => {
+                                toast({
+                                  title: "Error deleting event",
+                                  description: "Failed to delete the event.",
+                                  variant: "destructive",
+                                });
+                              });
+                          }}
+                          className="text-gray-400 hover:text-red-500"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                          </svg>
+                        </button>
+                      ) : (
+                        <span className="text-xs text-yellow-500">
+                          Not saved
+                        </span>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">

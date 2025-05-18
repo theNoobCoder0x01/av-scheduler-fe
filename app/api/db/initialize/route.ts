@@ -1,7 +1,6 @@
 import { initializeDB } from "@/lib/db";
-import type { NextApiRequest, NextApiResponse } from "next";
 
-export async function GET(request: NextApiRequest, response: NextApiResponse) {
+export async function GET(request: Request, response: Response) {
   // fetch data from the database
   const dbResponse = await initializeDB();
   console.log("dbResponse: " + dbResponse);
