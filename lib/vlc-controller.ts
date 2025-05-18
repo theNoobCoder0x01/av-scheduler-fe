@@ -1,7 +1,7 @@
 import { ActionType, ICalendarEvent } from "@/lib/types";
 import { ChildProcess, exec, spawn } from "child_process";
-import path from "path";
 import { logger } from "./logger";
+import path from "path";
 
 let vlcProcess: ChildProcess | null = null;
 let currentPlaylist: string | null = null;
@@ -229,12 +229,11 @@ async function stopVlc(
         vlcProcess.kill();
         vlcProcess = null;
         currentPlaylist = null;
+      }
+      if (process.platform === "win32") {
+        exec("taskkill /IM vlc.exe /F");
       } else {
-        if (process.platform === "win32") {
-          exec("taskkill /IM vlc.exe /F");
-        } else {
-          exec("pkill -f VLC");
-        }
+        exec("pkill -f VLC");
       }
     }
     if (httpRes && !httpRes.success) {
