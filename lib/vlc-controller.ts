@@ -109,18 +109,28 @@ async function playPlaylist(
 
       if (!vlcRunning) {
         logger.help("Starting VLC with HTTP interface");
-
-        // Start VLC with HTTP interface
-        vlcProcess = spawn("open", [
-          "-a",
-          VLC_PATH,
-          "--args",
-          "--extraintf=http",
-          `--http-host=${VLC_HTTP_HOST}`,
-          `--http-port=${VLC_HTTP_PORT}`,
-          `--http-password=${VLC_HTTP_PASSWORD}`,
-          filePath,
-        ]);
+        if (process.platform === "win32") {
+          // Start VLC with HTTP interface
+          vlcProcess = spawn(VLC_PATH, [
+            "--extraintf=http",
+            `--http-host=${VLC_HTTP_HOST}`,
+            `--http-port=${VLC_HTTP_PORT}`,
+            `--http-password=${VLC_HTTP_PASSWORD}`,
+            filePath,
+          ]);
+        } else {
+          // Start VLC with HTTP interface
+          vlcProcess = spawn("open", [
+            "-a",
+            VLC_PATH,
+            "--args",
+            "--extraintf=http",
+            `--http-host=${VLC_HTTP_HOST}`,
+            `--http-port=${VLC_HTTP_PORT}`,
+            `--http-password=${VLC_HTTP_PASSWORD}`,
+            filePath,
+          ]);
+        }
 
         vlcProcess?.stdout?.on?.("data", (data) => {
           logger.help(`VLC stdout: ${data}`);
