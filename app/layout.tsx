@@ -8,7 +8,7 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Media Scheduler',
+  title: 'BAPS Music Scheduler',
   description: 'Schedule media playback based on calendar events',
 };
 

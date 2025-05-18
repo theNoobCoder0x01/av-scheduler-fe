@@ -5,7 +5,7 @@ export async function GET(request: Request) {
   try {
     // fetch data from the database
     const dbResponse = await query(`SELECT * FROM calendar_events`);
-    console.log("dbResponse", dbResponse);
+    console.log("dbResponse: " + dbResponse);
     // Logic to create a new user in the database
     return Response.json(
       { message: "Calendar events fetched successfully", data: dbResponse },
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       valuesArray
     );
 
-    console.log("dbResponse create calendar events", dbResponse);
+    console.log("dbResponse create calendar events: " + dbResponse);
 
     const newRows = await query(
       `SELECT * FROM calendar_events WHERE uid in (${data
@@ -115,7 +115,7 @@ export async function PUT(request: Request) {
       ]
     );
 
-    console.log("dbResponse update calendar event", dbResponse);
+    console.log("dbResponse update calendar event: " + dbResponse);
 
     const [updatedRow] = await query(
       `SELECT * FROM calendar_events WHERE id = ?`,
@@ -142,7 +142,7 @@ export async function DELETE(request: Request) {
     if (!calendarEventId?.length) {
       throw new Error("Calendar event ID is required");
     }
-    console.log("calendarEventId", calendarEventId);
+    console.log("calendarEventId: " + calendarEventId);
 
     // Logic to delete the calendar event from the database
     const dbResponse = await execute(
@@ -151,7 +151,7 @@ export async function DELETE(request: Request) {
   `,
       [calendarEventId]
     );
-    console.log("dbResponse", dbResponse);
+    console.log("dbResponse: " + dbResponse);
 
     // Logic to create a new user in the database
     return Response.json(

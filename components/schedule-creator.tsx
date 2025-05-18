@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { ActionType, ICalendarEvent, ScheduledAction } from "@/lib/types";
-import { controlVlc } from "@/lib/vlc-controller";
+import { WebSocketService } from "@/lib/websocket";
 import { ScheduledActionService } from "@/services/scheduler.service";
 import { format } from "date-fns";
 import {
@@ -34,7 +34,7 @@ import {
   Square,
   Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface ScheduleCreatorProps {
   events: ICalendarEvent[];
@@ -52,7 +52,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   const { toast } = useToast();
 
   // Fetch schedules from the server
-  const fetchSchedules = async () => {
+  const fetchSchedules = useCallback(async () => {
     try {
       const response = await ScheduledActionService.getAllScheduledActions();
       setScheduledActions(response);
@@ -64,7 +64,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
   const handleReloadAction = async () => {
     fetchSchedules();
@@ -93,11 +93,12 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
 
         // Create date object based on event date and action time
         const [hours, minutes] = actionTime.split(":").map(Number);
-        let actionDate: number | Date = new Date(event.start);
+        let actionDate: number | Date = new Date(event.start * 1000);
         actionDate.setHours(hours, minutes, 0, 0);
-        actionDate = Math.floor(actionDate.getTime() / 1000); // Convert to seconds
+        // Convert to seconds
+        const actionDateSeconds = Math.floor(actionDate.getTime() / 1000);
         // Validate time is within event duration
-        if (actionDate < event.start || actionDate > event.end) {
+        if (actionDateSeconds < event.start || actionDateSeconds > event.end) {
           toast({
             title: "Invalid time",
             description: "The action time must be within the event's duration",
@@ -110,7 +111,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
           ...newAction,
           eventId: event.uid,
           eventName: event.summary,
-          date: new Date(actionDate * 1000),
+          date: actionDate,
         };
       }
 
@@ -171,7 +172,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   const executeAction = async (action: ScheduledAction) => {
     setIsExecuting(true);
     try {
-      const result = await controlVlc(action.actionType, action.eventName);
+      // const result = await controlVlc(action.actionType, action.eventName);
+      let result = { success: true, message: "Action executed" }; // Mocked result
 
       toast({
         title: result.success ? "Action executed" : "Action failed",
@@ -193,7 +195,31 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
 
   useEffect(() => {
     fetchSchedules();
-  }, []);
+
+    // Initialize WebSocket connection
+    WebSocketService.connect();
+
+    // Add WebSocket listener for scheduled action events
+    const handleScheduledAction = (data: any) => {
+      if (data.type === "scheduledAction") {
+        toast({
+          title: "Scheduled Action Executed",
+          description: `${data.action.actionType} action executed for ${data.action.eventName}`,
+        });
+        fetchSchedules(); // Refresh the schedules to get updated last/next run times
+      }
+    };
+
+    WebSocketService.addListener(handleScheduledAction);
+
+    return () => {
+      WebSocketService.removeListener(handleScheduledAction);
+    };
+  }, [toast, fetchSchedules]);
+
+  const formatTimestamp = (timestamp: number) => {
+    return format(new Date(timestamp * 1000), "PPp");
+  };
 
   return (
     <div className="space-y-8">
@@ -240,7 +266,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                     <SelectContent>
                       {events.map((event) => (
                         <SelectItem key={event.uid} value={event.uid}>
-                          {event.summary} ({format(event.start, "MMM d")})
+                          {event.summary} ({format(event.start * 1000, "MMM d")}
+                          )
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -314,12 +341,16 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                   <TableHead>Time</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Event</TableHead>
+                  <TableHead>Last Run</TableHead>
+                  <TableHead>Next Run</TableHead>
                   <TableHead className="text-right">Options</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {scheduledActions
                   .sort((a, b) => {
+                    if (!a) return 1;
+                    if (!b) return -1;
                     if (a.isDaily && !b.isDaily) return -1;
                     if (!a.isDaily && b.isDaily) return 1;
                     if (a.date && b.date)
@@ -368,6 +399,20 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                           <span className="font-medium">
                             {action.eventName}
                           </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {action.lastRun ? (
+                          formatTimestamp(action.lastRun)
+                        ) : (
+                          <span className="text-muted-foreground">Never</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {action.nextRun ? (
+                          formatTimestamp(action.nextRun)
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}

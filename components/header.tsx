@@ -43,7 +43,7 @@ export default function Header() {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <span className="font-bold text-xl">Media Scheduler</span>
+            <span className="font-bold text-xl">BAPS Music Scheduler</span>
           </Link>
         </div>
         <div className="flex items-center gap-2">

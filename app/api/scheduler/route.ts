@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     // Map the response to frontend compatible format
     dbResponse = mapDbResponseToScheduledAction(dbResponse);
 
-    console.log("dbResponse", dbResponse);
+    console.log("dbResponse: " + dbResponse);
     // Logic to create a new user in the database
     return Response.json(
       {
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       ]
     );
 
-    console.log("dbResponse create action", dbResponse);
+    console.log("dbResponse create action: " + dbResponse);
 
     const [newRow] = await query(
       `SELECT * FROM scheduled_actions WHERE id = last_insert_rowid()`
@@ -143,7 +143,7 @@ export async function PUT(request: Request) {
       ]
     );
 
-    console.log("dbResponse update action", dbResponse);
+    console.log("dbResponse update action: " + dbResponse);
 
     const [updatedRow] = await query(
       `SELECT * FROM scheduled_actions WHERE id = ?`,
@@ -254,14 +254,14 @@ export async function DELETE(request: Request) {
     if (!actionId?.toString()?.length) {
       throw new Error("Action ID is required");
     }
-    console.log("actionId", actionId);
+    console.log("actionId: " + actionId);
 
     // Logic to delete the action from the database
     const dbResponse = await execute(
       `DELETE FROM scheduled_actions WHERE id = ?`,
       [actionId]
     );
-    console.log("dbResponse", dbResponse);
+    console.log("dbResponse: " + dbResponse);
 
     // Logic to create a new user in the database
     return Response.json(

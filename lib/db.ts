@@ -22,14 +22,14 @@ async function connectDB() {
 }
 
 export async function query(sql: any, params: any[] = []) {
-  console.log(sql, params);
+  console.log(sql + params);
 
   const db = await connectDB();
   return db.all(sql, params);
 }
 
 export async function execute(sql: any, params: any[] = []) {
-  console.log(sql, params);
+  console.log(sql + params);
 
   const db = await connectDB();
   return db.run(sql, params);

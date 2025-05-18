@@ -1,3 +1,4 @@
+import { broadcast } from "@/app/api/ws/route";
 import { ScheduledAction } from "@/lib/types";
 import { controlVlc } from "@/lib/vlc-controller";
 import { ScheduledActionService } from "@/services/scheduler.service";
@@ -119,20 +120,38 @@ class Scheduler {
     }
 
     try {
-      await controlVlc(action.actionType, action.eventName);
+      const result = await controlVlc(action.actionType, action.eventName);
       console.log("Action executed successfully:", action.actionType);
+      console.log("Result: " + JSON.stringify(result, null, 2));
 
       // Update the last_run and next_run fields in the database
       const now = Math.floor(Date.now() / 1000);
+      const nextRun = action.isDaily ? now + 24 * 60 * 60 : undefined;
+
       await ScheduledActionService.patchAction(action.id, {
         lastRun: now,
-        nextRun: action.isDaily
-          ? now + 24 * 60 * 60 // Next run in 24 hours
-          : undefined, // No next run for one-time actions
+        nextRun,
         id: action.id,
+      });
+
+      // Broadcast the action execution via WebSocket
+      broadcast({
+        type: "scheduledAction",
+        action: {
+          ...action,
+          lastRun: now,
+          nextRun,
+        },
+        result,
       });
     } catch (error) {
       console.error("Failed to execute scheduled action:", error);
+      // Broadcast the error via WebSocket
+      broadcast({
+        type: "scheduledActionError",
+        action,
+        error: (error as Error).message,
+      });
     }
   }
 }

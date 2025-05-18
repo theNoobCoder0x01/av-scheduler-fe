@@ -1,7 +1,11 @@
 "use client";
 import Header from "@/components/header";
 import MainView from "@/components/main-view";
+
+import { overrideConsole } from "@/lib/override-console";
 import { Calendar } from "lucide-react";
+
+overrideConsole(); // Call at module level (runs in Node.js and in browser)
 
 export default function Home() {
   return (
@@ -13,7 +17,7 @@ export default function Home() {
             <div className="flex flex-col items-center justify-center">
               <div className="flex items-center mb-4">
                 <Calendar className="h-8 w-8 mr-2 text-primary" />
-                <h1 className="text-3xl font-bold">Media Scheduler</h1>
+                <h1 className="text-3xl font-bold">BAPS Music Scheduler</h1>
               </div>
               <p className="text-muted-foreground max-w-2xl">
                 Upload your calendar file, schedule actions, and automate your
@@ -27,7 +31,7 @@ export default function Home() {
       </main>
       <footer className="py-4 border-t">
         <div className="container mx-auto text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Media Scheduler</p>
+          <p>© {new Date().getFullYear()} BAPS Music Scheduler</p>
         </div>
       </footer>
     </div>
