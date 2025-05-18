@@ -1,5 +1,6 @@
 import { ActionType, ICalendarEvent } from "@/lib/types";
 import { ChildProcess, exec, spawn } from "child_process";
+import path from "path";
 import { logger } from "./logger";
 
 let vlcProcess: ChildProcess | null = null;
@@ -98,7 +99,7 @@ async function playPlaylist(
 
     const cleanName = playlistName.replace(/[<>:"/\\|?*]/g, "_");
     const fileName = `${cleanName}.m3u`;
-    const filePath = `${process.cwd()}/playlists/${fileName}`;
+    const filePath = path.join(process.cwd(), "playlists", fileName);
 
     if (USE_HTTP_INTERFACE) {
       console.log("Using HTTP interface to control VLC");
