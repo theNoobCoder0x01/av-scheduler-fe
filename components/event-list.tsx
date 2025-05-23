@@ -11,8 +11,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { setEvents } from "@/lib/store/slices/eventsSlice";
-import { ICalendarEvent } from "@/lib/types";
 import { isFullDayEvent } from "@/lib/utils";
+import { ICalendarEvent } from "@/models/calendar-event.model";
 import { CalendarEventService } from "@/services/calendar-event.service";
 import { format } from "date-fns";
 import { Calendar, Clock, MapPin, Search } from "lucide-react";

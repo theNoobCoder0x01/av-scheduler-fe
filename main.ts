@@ -1,34 +1,90 @@
-// main.ts
 import { app, BrowserWindow } from "electron";
-import path from "path";
-import { exec } from "child_process";
+import { Server } from "http";
+import * as path from "path";
+import { WebSocketServer } from "ws";
+import { startServer } from "./api-server";
 
-let mainWindow: BrowserWindow | null;
+let mainWindow: BrowserWindow | null = null;
+let servers: {
+  apiServer?: Server | null | undefined;
+  webSocketServer?: WebSocketServer | null | undefined;
+} = { apiServer: null, webSocketServer: null };
 
-function createWindow() {
+/**
+ * Starts the API server as a child process.
+ */
+function startApiServer() {
+  // console.log("Starting API server...", process.execPath);
+  // const isPackaged = app.isPackaged;
+  // const basePath = isPackaged
+  //   ? path.join(process.resourcesPath, "app.asar.unpacked")
+  //   : __dirname;
+  // const apiPath = path.join(basePath, "api-server", "index.js");
+  // console.log("apiPath", apiPath);
+  // apiProcess = spawn("node", [apiPath], { stdio: "inherit" });
+  // apiProcess.on("error", (err: Error) => {
+  //   console.error("Failed to start API server:", err);
+  // });
+  // apiProcess;
+  servers = startServer(() => {
+    // Start Express server first
+    createMainWindow(); // Then create the Electron window
+  });
+}
+
+/**
+ * Creates the main Electron browser window.
+ */
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
+      nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, "preload.js"), // optional
+      preload: path.join(__dirname, "preload.js"),
     },
   });
 
-  mainWindow.loadURL("http://localhost:3000");
-
-  mainWindow.webContents.openDevTools(); // <-- opens dev tools so you can see errors
+  // In production, load the built Next.js app
+  mainWindow.loadURL("http://localhost:8082");
 
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
 }
 
-app.whenReady().then(() => {
-  exec("npm run start"); // start next.js build
-  setTimeout(createWindow, 3000); // wait before loading browser
+/**
+ * Clean up child processes on app quit.
+ */
+function cleanupProcesses() {
+  if (servers.apiServer) {
+    servers.apiServer.close();
+    servers.apiServer = null;
+  }
+  if (servers.webSocketServer) {
+    servers.webSocketServer.close();
+    servers.webSocketServer = null;
+  }
+}
+
+// App lifecycle events
+app.on("ready", () => {
+  startApiServer();
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
+});
+
+app.on("activate", () => {
+  if (mainWindow === null) {
+    createMainWindow();
+  }
+});
+
+app.on("before-quit", () => {
+  cleanupProcesses();
 });

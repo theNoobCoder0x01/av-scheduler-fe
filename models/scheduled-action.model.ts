@@ -1,14 +1,3 @@
-export interface ICalendarEvent {
-  summary: string;
-  start: number | Date;
-  end: number | Date;
-  description?: string;
-  location?: string;
-  uid: string;
-  rawString?: string;
-  id?: string;
-}
-
 export type ActionType = "play" | "pause" | "stop";
 
 export interface ScheduledAction {
@@ -23,10 +12,4 @@ export interface ScheduledAction {
   nextRun?: number;
   createdAt?: number;
   updatedAt?: number;
-}
-
-export interface PlaylistConfig {
-  eventId: string;
-  eventName: string;
-  filePath: string;
 }

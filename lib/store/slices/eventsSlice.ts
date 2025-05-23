@@ -1,6 +1,6 @@
 "use client";
 
-import { ICalendarEvent } from "@/lib/types";
+import { ICalendarEvent } from "@/models/calendar-event.model";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../store";
 

@@ -1,5 +1,7 @@
-// This file can be used to expose APIs to the renderer process if needed
-window.addEventListener('DOMContentLoaded', () => {
-  // Example: Expose a version API
-  // document.getElementById('version').innerText = process.versions.electron;
+import { contextBridge } from 'electron';
+
+// Expose any APIs to the renderer process here
+contextBridge.exposeInMainWorld('electron', {
+  // Add any functions you want to expose
+  platform: process.platform
 });

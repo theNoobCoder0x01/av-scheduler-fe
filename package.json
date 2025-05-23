@@ -7,11 +7,12 @@
     "appId": "com.avscheduler.desktop",
     "productName": "AV Scheduler",
     "files": [
+      "dist/api-server/**",
+      "dist/models/**",
       "dist/main.js",
       "dist/preload.js",
       "out/**",
       "public/**",
-      "node_modules/**",
       "package.json"
     ],
     "directories": {
@@ -32,8 +33,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "electron:build": "npx tsc && next build && npx electron-builder",
-    "prepare": "tsc"
+    "api:dev": "ts-node-dev api-server/index.ts",
+    "api:build": "tsc",
+    "electron:dev": "cross-env NODE_ENV=development electron .",
+    "electron:build": "rm -rf dist && next build && tsc && npm run api:build && electron-builder"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -75,10 +78,12 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "cors": "^2.8.5",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
     "eslint": "8.49.0",
     "eslint-config-next": "13.5.1",
+    "express": "^5.1.0",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.446.0",
     "next": "13.5.1",
@@ -104,8 +109,11 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/electron": "^1.4.38",
-    "electron": "^36.2.1"
+    "@types/cors": "^2.8.18",
+    "@types/express": "^5.0.2",
+    "cross-env": "^7.0.3",
+    "electron": "^36.2.1",
+    "electron-builder": "^26.0.12"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.9",

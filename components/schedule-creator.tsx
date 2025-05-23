@@ -1,3 +1,5 @@
+"use client";
+
 import PlaylistCreator from "@/components/playlist-creator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +21,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { ActionType, ICalendarEvent, ScheduledAction } from "@/lib/types";
-import { WebSocketService } from "@/lib/websocket";
+import { ICalendarEvent } from "@/models/calendar-event.model";
+import { ActionType, ScheduledAction } from "@/models/scheduled-action.model";
 import { ScheduledActionService } from "@/services/scheduler.service";
+import { WebSocketService } from "@/services/web-socket.service";
 import { format } from "date-fns";
 import {
   Calendar,
@@ -66,9 +69,9 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     }
   }, [toast]);
 
-  const handleReloadAction = async () => {
+  const handleReloadAction = useCallback(async () => {
     fetchSchedules();
-  };
+  }, [fetchSchedules]);
 
   const handleAddAction = async () => {
     try {
@@ -398,11 +401,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                         </span>
                       </TableCell>
                       <TableCell>
-                        {action.isDaily ? (
-                          <span className="text-muted-foreground italic">
-                            Based on current event
-                          </span>
-                        ) : action.eventName ? (
+                        {action.eventName ? (
                           <span className="font-medium">
                             {action.eventName}
                           </span>

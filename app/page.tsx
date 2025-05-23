@@ -2,10 +2,7 @@
 import Header from "@/components/header";
 import MainView from "@/components/main-view";
 
-import { overrideConsole } from "@/lib/override-console";
 import { Calendar } from "lucide-react";
-
-overrideConsole(); // Call at module level (runs in Node.js and in browser)
 
 export default function Home() {
   return (

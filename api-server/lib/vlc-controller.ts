@@ -1,7 +1,8 @@
-import { ActionType, ICalendarEvent } from "@/lib/types";
 import { ChildProcess, exec, spawn } from "child_process";
-import { logger } from "./logger";
 import path from "path";
+import { ICalendarEvent } from "../../models/calendar-event.model";
+import { ActionType } from "../../models/scheduled-action.model";
+import { CalendarEventsService } from "../services/calendar-events.service";
 
 let vlcProcess: ChildProcess | null = null;
 let currentPlaylist: string | null = null;
@@ -20,23 +21,13 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
 
 async function getCurrentEvent(): Promise<ICalendarEvent | undefined> {
-  const response = await fetch(`${API_BASE_URL}/calendar-events`);
-  const status = response.status;
-  if (status !== 200) {
-    throw new Error("Failed to fetch calendar events");
-  }
-  const { data } = await response.json();
+  const response = await CalendarEventsService.getCurrentCalendarEvent();
 
-  if (!data || data.length === 0) {
+  if (!response || response.length === 0) {
     return undefined;
   }
 
-  return (data as ICalendarEvent[]).find((event) => {
-    const eventStart = typeof event.start === "number" ? event.start : 0;
-    const eventEnd = typeof event.end === "number" ? event.end : 0;
-    const now = Math.floor(new Date().getTime() / 1000) - 365 * 24 * 60 * 60;
-    return now >= eventStart && now <= eventEnd;
-  });
+  return (response as ICalendarEvent[])[0];
 }
 
 function isVlcRunning(): Promise<boolean> {
@@ -109,7 +100,7 @@ async function playPlaylist(
       console.log("VLC running: " + vlcRunning);
 
       if (!vlcRunning) {
-        logger.help("Starting VLC with HTTP interface");
+        console.log("[HELP] Starting VLC with HTTP interface");
         if (process.platform === "win32") {
           // Start VLC with HTTP interface
           vlcProcess = spawn(VLC_PATH, [
@@ -134,15 +125,15 @@ async function playPlaylist(
         }
 
         vlcProcess?.stdout?.on?.("data", (data) => {
-          logger.help(`VLC stdout: ${data}`);
+          console.log(`[HELP] VLC stdout: ${data}`);
         });
 
         vlcProcess?.stderr?.on?.("data", (data) => {
-          logger.help(`VLC stderr: ${data}`);
+          console.log(`[HELP] VLC stderr: ${data}`);
         });
 
         vlcProcess?.on("close", (code) => {
-          logger.help(`VLC process exited with code ${code}`);
+          console.log(`[HELP] VLC process exited with code ${code}`);
         });
       } else {
         console.log("VLC is already running, sending HTTP command");
@@ -214,11 +205,14 @@ async function stopVlc(
   { killProcess = false }: { killProcess: boolean } = { killProcess: false }
 ): Promise<{ success: boolean; message: string }> {
   try {
-    logger.help("Stopping VLC playback");
-    logger.help("Is Http interface: ", USE_HTTP_INTERFACE);
-    logger.help("Kill process: ", killProcess);
-    logger.help("VLC process: ", vlcProcess);
-    logger.help("Will try to quit app: ", killProcess || !USE_HTTP_INTERFACE);
+    console.log("[HELP] Stopping VLC playback");
+    console.log("[HELP] Is Http interface: ", USE_HTTP_INTERFACE);
+    console.log("[HELP] Kill process: ", killProcess);
+    console.log("[HELP] VLC process: ", vlcProcess);
+    console.log(
+      "[HELP] Will try to quit app: ",
+      killProcess || !USE_HTTP_INTERFACE
+    );
 
     let httpRes;
     if (USE_HTTP_INTERFACE) {

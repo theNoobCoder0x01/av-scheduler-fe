@@ -1,8 +1,8 @@
-import { ICalendarEvent } from "@/lib/types";
+import { ICalendarEvent } from "@/models/calendar-event.model";
 import axios from "axios";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082/api";
 
 export class CalendarEventService {
   static async getAllCalendarEvents(): Promise<ICalendarEvent[]> {
@@ -35,7 +35,7 @@ export class CalendarEventService {
   static async getCalendarEventById(id: string): Promise<ICalendarEvent> {
     try {
       const { status, data: response } = await axios.get(
-        `${API_BASE_URL}/calendar-events?id=${id}`
+        `${API_BASE_URL}/calendar-events/${id}`
       );
 
       if (status !== 200) {
@@ -90,7 +90,7 @@ export class CalendarEventService {
   static async deleteCalendarEvent(id: string): Promise<void> {
     try {
       const { status, data: response } = await axios.delete(
-        `${API_BASE_URL}/calendar-events?id=${id}`
+        `${API_BASE_URL}/calendar-events/${id}`
       );
 
       if (status !== 200) {

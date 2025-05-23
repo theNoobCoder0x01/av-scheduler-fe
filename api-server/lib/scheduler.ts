@@ -1,34 +1,33 @@
-import { broadcast } from "@/app/api/ws/route";
-import { ScheduledAction } from "@/lib/types";
-import { controlVlc } from "@/lib/vlc-controller";
-import { ScheduledActionService } from "@/services/scheduler.service";
+import { ScheduledAction } from "../../models/scheduled-action.model";
+import { SchedulerService } from "../services/scheduler.service";
+import { controlVlc } from "./vlc-controller";
+import { broadcast } from "./web-socket";
 
-class Scheduler {
-  private static instance: Scheduler;
-  private schedules: Map<string, NodeJS.Timeout>;
-  private dailySchedules: Map<string, NodeJS.Timeout>;
+class ActionScheduler {
+  private static instance: ActionScheduler;
+  private schedules = new Map<string, NodeJS.Timeout>();
+  private dailySchedules = new Map<string, NodeJS.Timeout>();
   private _activeSchedules: ScheduledAction[] = [];
-  public get activeSchedules(): ScheduledAction[] {
+
+  private constructor() {}
+
+  public static getInstance(): ActionScheduler {
+    if (!ActionScheduler.instance) {
+      ActionScheduler.instance = new ActionScheduler();
+    }
+    return ActionScheduler.instance;
+  }
+
+  get activeSchedules(): ScheduledAction[] {
     return this._activeSchedules;
   }
-  public set activeSchedules(value: ScheduledAction[]) {
+
+  set activeSchedules(value: ScheduledAction[]) {
     this._activeSchedules = value;
   }
 
-  private constructor() {
-    this.schedules = new Map();
-    this.dailySchedules = new Map();
-  }
-
-  public static getInstance(): Scheduler {
-    if (!Scheduler.instance) {
-      Scheduler.instance = new Scheduler();
-    }
-    return Scheduler.instance;
-  }
-
   public async initializeSchedules(): Promise<void> {
-    this.activeSchedules.forEach((action) => {
+    this._activeSchedules.forEach((action) => {
       this.scheduleAction(action);
     });
   }
@@ -42,67 +41,46 @@ class Scheduler {
   }
 
   public async removeSchedule(scheduleId: string): Promise<void> {
-    await ScheduledActionService.deleteAction(scheduleId);
+    await SchedulerService.deleteScheduledAction(parseInt(scheduleId));
     this.clearAllSchedules();
     await this.initializeSchedules();
   }
 
   public clearAllSchedules(): void {
-    // Clear one-time schedules
-    this.schedules.forEach((timeout) => clearTimeout(timeout));
+    this.schedules.forEach(clearTimeout);
     this.schedules.clear();
-
-    // Clear daily schedules
-    this.dailySchedules.forEach((interval) => clearInterval(interval));
+    this.dailySchedules.forEach(clearInterval);
     this.dailySchedules.clear();
-
-    // Clear active schedules
-    this.activeSchedules = [];
+    this._activeSchedules = [];
   }
 
   private scheduleOneTimeAction(action: ScheduledAction): void {
     if (!action.date) return;
-
-    const now = new Date();
-    const scheduledTime = action.date;
-    const delay = scheduledTime.getTime() - now.getTime();
-
-    if (delay < 0) return; // Don't schedule past actions
-
+    const delay = action.date.getTime() - new Date().getTime();
+    if (delay < 0) return;
     const scheduleId = `${action.id}`;
-
     const timeout = setTimeout(async () => {
       await this.executeAction(action);
       this.removeSchedule(scheduleId);
     }, delay);
-
     this.schedules.set(scheduleId, timeout);
   }
 
   private scheduleDailyAction(action: ScheduledAction): void {
     const [hours, minutes] = action.time.split(":").map(Number);
     const scheduleId = `daily-${action.actionType}-${action.time}`;
-
-    // Calculate initial delay
     const now = new Date();
     const scheduledTime = new Date(now);
     scheduledTime.setHours(hours, minutes, 0, 0);
-
     if (scheduledTime.getTime() < now.getTime()) {
       scheduledTime.setDate(scheduledTime.getDate() + 1);
     }
-
     const initialDelay = scheduledTime.getTime() - now.getTime();
-
-    // Schedule initial execution
     setTimeout(() => {
       this.executeAction(action);
-
-      // Set up daily interval
       const interval = setInterval(() => {
         this.executeAction(action);
-      }, 24 * 60 * 60 * 1000); // 24 hours
-
+      }, 24 * 60 * 60 * 1000);
       this.dailySchedules.set(scheduleId, interval);
     }, initialDelay);
   }
@@ -113,28 +91,20 @@ class Scheduler {
       console.error("No action type specified");
       return;
     }
-
     if (!action.id) {
       console.error("No action ID specified");
       return;
     }
-
     try {
       const result = await controlVlc(action.actionType, action.eventName);
       console.log("Action executed successfully:", action.actionType);
       console.log("Result: " + JSON.stringify(result, null, 2));
-
-      // Update the last_run and next_run fields in the database
       const now = Math.floor(Date.now() / 1000);
       const nextRun = action.isDaily ? now + 24 * 60 * 60 : undefined;
-
-      await ScheduledActionService.patchAction(action.id, {
+      await SchedulerService.patchScheduledAction(parseInt(action.id ?? ""), {
         lastRun: now,
         nextRun,
-        id: action.id,
       });
-
-      // Broadcast the action execution via WebSocket
       broadcast({
         type: "scheduledAction",
         action: {
@@ -146,7 +116,6 @@ class Scheduler {
       });
     } catch (error) {
       console.error("Failed to execute scheduled action:", error);
-      // Broadcast the error via WebSocket
       broadcast({
         type: "scheduledActionError",
         action,
@@ -156,4 +125,4 @@ class Scheduler {
   }
 }
 
-export const scheduler = Scheduler.getInstance();
+export const actionScheduler = ActionScheduler.getInstance();

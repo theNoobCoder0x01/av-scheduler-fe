@@ -1,8 +1,8 @@
-import { ScheduledAction } from "@/lib/types";
+import { ScheduledAction } from "@/models/scheduled-action.model";
 import axios from "axios";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082/api";
 
 export class ScheduledActionService {
   static async getAllScheduledActions(): Promise<ScheduledAction[]> {
@@ -17,6 +17,7 @@ export class ScheduledActionService {
 
       return response.data;
     } catch (error) {
+      console.error(error);
       throw new Error("Failed to fetch scheduled actions");
     }
   }
@@ -24,7 +25,7 @@ export class ScheduledActionService {
   static async getScheduledActionById(id: string): Promise<ScheduledAction> {
     try {
       const { status, data: response } = await axios.get(
-        `${API_BASE_URL}/scheduler?id=${id}`
+        `${API_BASE_URL}/scheduler/${id}`
       );
 
       if (status !== 200) {
@@ -62,7 +63,7 @@ export class ScheduledActionService {
   ): Promise<ScheduledAction> {
     try {
       const { status, data: response } = await axios.put(
-        `${API_BASE_URL}/scheduler?id=${id}`,
+        `${API_BASE_URL}/scheduler/${id}`,
         action
       );
 
@@ -82,7 +83,7 @@ export class ScheduledActionService {
   ): Promise<ScheduledAction> {
     try {
       const { status, data: response } = await axios.patch(
-        `${API_BASE_URL}/scheduler?id=${id}`,
+        `${API_BASE_URL}/scheduler/${id}`,
         action
       );
 
@@ -99,7 +100,7 @@ export class ScheduledActionService {
   static async deleteAction(id: string): Promise<void> {
     try {
       const { status, data: response } = await axios.delete(
-        `${API_BASE_URL}/scheduler?id=${id}`
+        `${API_BASE_URL}/scheduler/${id}`
       );
 
       if (status !== 200) {

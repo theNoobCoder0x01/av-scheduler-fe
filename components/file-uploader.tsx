@@ -6,8 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { parseIcsFile } from "@/lib/ics-parser";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { setEvents } from "@/lib/store/slices/eventsSlice";
-import { ICalendarEvent } from "@/lib/types";
 import { isFullDayEvent } from "@/lib/utils";
+import { ICalendarEvent } from "@/models/calendar-event.model";
 import { FileText, Upload } from "lucide-react";
 import { useState } from "react";
 

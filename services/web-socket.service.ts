@@ -1,4 +1,3 @@
-
 export class WebSocketService {
   private static instance: WebSocket | null = null;
   private static listeners: ((data: any) => void)[] = [];
@@ -6,7 +5,7 @@ export class WebSocketService {
   static connect() {
     if (!this.instance) {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.hostname}:8082/ws`;
+      const wsUrl = `${protocol}//${window.location.hostname}:8082`;
       this.instance = new WebSocket(wsUrl);
 
       this.instance.onmessage = (event) => {

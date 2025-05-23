@@ -10,7 +10,9 @@ async function connectDB() {
   if (db) return db;
 
   db = await open({
-    filename: path.resolve("./db.sqlite"), // Path to your database file
+    filename: path.resolve(
+      "/Users/thenoob0x01/Documents/hrishi/seva/av-scheduler/av-scheduler-fe/db.sqlite"
+    ), // Path to your database file
     driver: sqlite3.Database,
   });
 
@@ -22,14 +24,14 @@ async function connectDB() {
 }
 
 export async function query(sql: any, params: any[] = []) {
-  console.log(sql + params);
+  console.log(sql, params);
 
   const db = await connectDB();
   return db.all(sql, params);
 }
 
 export async function execute(sql: any, params: any[] = []) {
-  console.log(sql + params);
+  console.log(sql, params);
 
   const db = await connectDB();
   return db.run(sql, params);
