@@ -21,6 +21,7 @@ export class SchedulerService {
       LEFT JOIN calendar_events e ON
         e.start <= (sa.next_run - ${365 * 24 * 60 * 60}) 
         AND e.end >= (sa.next_run - ${365 * 24 * 60 * 60})
+      ORDER BY sa.next_run ASC;
     `);
 
     // Map the response to frontend compatible format

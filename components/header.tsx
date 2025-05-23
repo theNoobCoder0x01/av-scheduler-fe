@@ -8,9 +8,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Clock, Github, HelpCircle } from "lucide-react";
+import { Clock, Github, HelpCircle, Settings } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import SettingsForm from "@/components/settings-form";
 
 export default function Header() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -23,7 +25,7 @@ export default function Header() {
     return () => clearInterval(timer);
   }, []);
 
-  const [formattedTime, setFormattedTime] = useState(""); //currentTime.toLocaleTimeString();
+  const [formattedTime, setFormattedTime] = useState("");
   const epochTimestamp = Math.floor(currentTime.getTime() / 1000);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export default function Header() {
       setFormattedTime(now.toLocaleTimeString());
     };
 
-    updateTime(); // Set initial time
+    updateTime();
     const timer = setInterval(updateTime, 1000);
 
     return () => clearInterval(timer);
@@ -59,6 +61,24 @@ export default function Header() {
               </TooltipTrigger>
               <TooltipContent>
                 <p>Epoch: {epochTimestamp}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Settings className="h-[1.2rem] w-[1.2rem]" />
+                    <span className="sr-only">Settings</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <SettingsForm />
+                </DialogContent>
+              </Dialog>
+              <TooltipContent>
+                <p>Settings</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

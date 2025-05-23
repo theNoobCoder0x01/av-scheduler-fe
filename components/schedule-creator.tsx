@@ -50,7 +50,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [actionType, setActionType] = useState<ActionType>("play");
   const [actionTime, setActionTime] = useState<string>("");
-  const [isDaily, setIsDaily] = useState(false);
+  const [isDaily, setIsDaily] = useState(true);
   const [isExecuting, setIsExecuting] = useState(false);
   const { toast } = useToast();
 
@@ -358,15 +358,6 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
               </TableHeader>
               <TableBody>
                 {scheduledActions
-                  .sort((a, b) => {
-                    if (!a) return 1;
-                    if (!b) return -1;
-                    if (a.isDaily && !b.isDaily) return -1;
-                    if (!a.isDaily && b.isDaily) return 1;
-                    if (a.date && b.date)
-                      return a.date.getTime() - b.date.getTime();
-                    return a.time.localeCompare(b.time);
-                  })
                   .map((action, index) => (
                     <TableRow key={index}>
                       <TableCell>

@@ -3,6 +3,7 @@ import path from "path";
 import { ICalendarEvent } from "../../models/calendar-event.model";
 import { ActionType } from "../../models/scheduled-action.model";
 import { CalendarEventsService } from "../services/calendar-events.service";
+import { getSettings } from "./settings";
 
 let vlcProcess: ChildProcess | null = null;
 let currentPlaylist: string | null = null;
@@ -88,9 +89,10 @@ async function playPlaylist(
       };
     }
 
+    const settings = getSettings();
     const cleanName = playlistName.replace(/[<>:"/\\|?*]/g, "_");
     const fileName = `${cleanName}.m3u`;
-    const filePath = path.join(process.cwd(), "playlists", fileName);
+    const filePath = path.join(settings.playlistFolderPath, fileName);
 
     if (USE_HTTP_INTERFACE) {
       console.log("Using HTTP interface to control VLC");

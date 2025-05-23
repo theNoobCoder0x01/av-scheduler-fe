@@ -13,8 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { generateM3uContent } from "@/lib/playlist-utils";
 import { ICalendarEvent } from "@/models/calendar-event.model";
 import { PlaylistConfig } from "@/models/playlist-config.model";
+import { SettingsService } from "@/services/settings.service";
 import { FileMusic, Music, Save } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface PlaylistCreatorProps {
   events: ICalendarEvent[];
@@ -24,7 +25,25 @@ export default function PlaylistCreator({ events }: PlaylistCreatorProps) {
   const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [mediaFiles, setMediaFiles] = useState<string>("");
   const [playlists, setPlaylists] = useState<PlaylistConfig[]>([]);
+  const [playlistPath, setPlaylistPath] = useState<string>("");
   const { toast } = useToast();
+
+  const loadSettings = useCallback(async () => {
+    try {
+      const settings = await SettingsService.getSettings();
+      setPlaylistPath(settings.playlistFolderPath);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load settings",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   const handleCreatePlaylist = () => {
     if (!selectedEvent || !mediaFiles.trim()) {
@@ -71,7 +90,7 @@ export default function PlaylistCreator({ events }: PlaylistCreatorProps) {
 
       toast({
         title: "Playlist created",
-        description: `Playlist "${fileName}" has been created and downloaded`,
+        description: `Playlist "${fileName}" has been created and downloaded to ${playlistPath}`,
       });
     } catch (error) {
       toast({
@@ -130,6 +149,9 @@ export default function PlaylistCreator({ events }: PlaylistCreatorProps) {
             <p className="text-xs text-muted-foreground">
               Enter file paths or URLs, one per line. These will be included in
               the M3U playlist.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Playlist will be saved to: {playlistPath}
             </p>
           </div>
 

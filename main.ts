@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { Server } from "http";
 import * as path from "path";
 import { WebSocketServer } from "ws";
@@ -53,6 +53,13 @@ function createMainWindow() {
     mainWindow = null;
   });
 }
+
+ipcMain.handle("open-folder-dialog", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openDirectory"],
+  });
+  return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
+});
 
 /**
  * Clean up child processes on app quit.
