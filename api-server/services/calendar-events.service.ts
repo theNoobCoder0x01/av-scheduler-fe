@@ -2,7 +2,7 @@ import { query } from "../lib/db";
 
 export class CalendarEventsService {
   public static async getCurrentCalendarEvent() {
-    let now = Math.floor(new Date().getTime() / 1000) - 365 * 24 * 60 * 60;
+    let now = Math.floor(new Date().getTime() / 1000);
     let dbResponse = await query(
       `
       SELECT

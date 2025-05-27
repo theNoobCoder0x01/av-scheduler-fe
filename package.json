@@ -2,10 +2,14 @@
   "name": "nextjs",
   "version": "0.1.0",
   "private": true,
+  "description": "An Electron-based AV Scheduler desktop application built with Next.js",
+  "author": "theNoobCoder0x01 <patelhrishikesh2000@gmail.com>",
   "main": "dist/main.js",
   "build": {
     "appId": "com.avscheduler.desktop",
-    "productName": "AV Scheduler",
+    "productName": "BAPS AV Scheduler",
+    "defaultArch": "universal",
+    "compression": "maximum",
     "files": [
       "dist/api-server/**",
       "dist/models/**",
@@ -19,6 +23,7 @@
       "buildResources": "build"
     },
     "mac": {
+      "defaultArch": "universal",
       "target": "dmg"
     },
     "win": {
@@ -36,7 +41,7 @@
     "api:dev": "ts-node-dev api-server/index.ts",
     "api:build": "tsc",
     "electron:dev": "cross-env NODE_ENV=development electron .",
-    "electron:build": "rm -rf dist && next build && tsc && npm run api:build && electron-builder"
+    "electron:build": "rm -rf dist && next build && rm -rf dist && tsc && npm run api:build && electron-builder --mac --arm64 --x64"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

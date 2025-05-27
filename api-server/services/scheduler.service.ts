@@ -19,8 +19,8 @@ export class SchedulerService {
         sa.updated_at
       FROM scheduled_actions sa 
       LEFT JOIN calendar_events e ON
-        e.start <= (sa.next_run - ${365 * 24 * 60 * 60}) 
-        AND e.end >= (sa.next_run - ${365 * 24 * 60 * 60})
+        e.start <= sa.next_run
+        AND e.end >= sa.next_run
       ORDER BY sa.next_run ASC;
     `);
 

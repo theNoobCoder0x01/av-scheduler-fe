@@ -102,4 +102,20 @@ export class CalendarEventService {
       throw new Error("Failed to delete calendar event");
     }
   }
+
+  static async deleteAllCalendarEvents(): Promise<void> {
+    try {
+      const { status, data: response } = await axios.delete(
+        `${API_BASE_URL}/calendar-events/all`
+      );
+
+      if (status !== 200) {
+        throw new Error("Failed to delete all calendar event");
+      }
+
+      return response.data ?? {};
+    } catch (error) {
+      throw new Error("Failed to delete all calendar event");
+    }
+  }
 }

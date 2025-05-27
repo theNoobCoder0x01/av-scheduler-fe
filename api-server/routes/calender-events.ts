@@ -151,6 +151,24 @@ calendarEventsRouter.put("/:id", async (req, res) => {
   }
 });
 
+// DELETE all calendar events
+calendarEventsRouter.delete("/all", async (req, res) => {
+  try {
+    const dbResponse = await execute(`DELETE FROM calendar_events`);
+
+    res.status(200).json({
+      message: "All calendar events deleted successfully",
+      data: dbResponse,
+    });
+  } catch (err: any) {
+    console.error("Error deleting all calendar events:", err);
+    res.status(500).json({
+      message: "Failed to delete all calendar events",
+      error: err.message,
+    });
+  }
+});
+
 // DELETE calendar event
 calendarEventsRouter.delete("/:id", async (req, res) => {
   try {

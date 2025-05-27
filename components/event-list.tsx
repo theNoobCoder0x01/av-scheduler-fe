@@ -71,22 +71,27 @@ export default function EventList({ events }: EventListProps) {
     return Math.floor(date.getTime() / 1000);
   };
 
-  const handleSaveEvents = async () => {
+  const handleSaveEvents = async (uid?: string) => {
     try {
+      let eventsToSave = events.filter(
+        (calendarEvent) => !Boolean(calendarEvent.id?.toString()?.length)
+      );
+      if (uid?.length) {
+        eventsToSave = eventsToSave.filter(
+          (calendarEvent) => calendarEvent.uid === uid
+        );
+      }
+
       let response = await CalendarEventService.createCalendarEvents(
-        events
-          .filter(
-            (calendarEvent) => !Boolean(calendarEvent.id?.toString()?.length)
-          )
-          .map((calendarEvent) => ({
-            summary: calendarEvent.summary,
-            start: calendarEvent.start,
-            end: calendarEvent.end,
-            description: calendarEvent.description,
-            location: calendarEvent.location,
-            uid: calendarEvent.uid,
-            rawString: JSON.stringify(calendarEvent),
-          }))
+        eventsToSave.map((calendarEvent) => ({
+          summary: calendarEvent.summary,
+          start: calendarEvent.start,
+          end: calendarEvent.end,
+          description: calendarEvent.description,
+          location: calendarEvent.location,
+          uid: calendarEvent.uid,
+          rawString: JSON.stringify(calendarEvent),
+        }))
       );
 
       if (response.length > 0) {
@@ -106,7 +111,26 @@ export default function EventList({ events }: EventListProps) {
     } catch (err) {
       toast({
         title: "Error saving events",
-        description: "Failed to save events to the server.",
+        description: "Failed to save events to the database.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteAllEvents = async () => {
+    try {
+      let response = await CalendarEventService.deleteAllCalendarEvents();
+
+      toast({
+        title: "All events deleted successfully",
+        description: "All unsaved events have been saved.",
+        variant: "default",
+      });
+      fetchEvents();
+    } catch (err) {
+      toast({
+        title: "Error deleting all events",
+        description: "Failed to delete all events from the database.",
         variant: "destructive",
       });
     }
@@ -131,14 +155,23 @@ export default function EventList({ events }: EventListProps) {
         {events.some(
           (calendarEvent: ICalendarEvent) =>
             !Boolean(calendarEvent.id?.toString()?.length)
-        ) && (
-          <p className="text-sm text-muted-foreground">
+        ) ? (
+          <p className="text-sm">
             Some events are not saved in the database.{" "}
             <a
-              className="font-semibold cursor-pointer text-[#dddddd] hover:underline hover:text-[#ffffff]"
-              onClick={handleSaveEvents}
+              className="font-semibold cursor-pointer text-[#1e3caa] dark:text-[#4dacff] hover:underline"
+              onClick={() => handleSaveEvents()}
             >
               Click to save events
+            </a>
+          </p>
+        ) : (
+          <p className="text-sm">
+            <a
+              className="font-semibold cursor-pointer text-[#1e3caa] dark:text-[#4dacff] hover:underline"
+              onClick={() => handleDeleteAllEvents()}
+            >
+              Delete all events
             </a>
           </p>
         )}
@@ -204,6 +237,12 @@ export default function EventList({ events }: EventListProps) {
                           </svg>
                         </button>
                       ) : (
+                        // <a
+                        //   className="font-semibold cursor-pointer text-[#1e3caa] dark:text-[#4dacff] hover:underline"
+                        //   onClick={() => handleSaveEvents(event.uid)}
+                        // >
+                        //   Save event
+                        // </a>
                         <span className="text-xs text-yellow-500">
                           Not saved
                         </span>
