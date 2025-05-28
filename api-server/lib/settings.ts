@@ -4,7 +4,7 @@ import os from "os";
 import path from "path";
 
 // Define the settings directory in the user's home folder
-const APP_CONFIG_DIR = path.join(os.homedir(), ".baps-scheduler");
+export const APP_CONFIG_DIR = path.join(os.homedir(), ".baps-scheduler");
 // Define the full path to the settings file
 const SETTINGS_FILE = path.join(APP_CONFIG_DIR, "settings.json");
 

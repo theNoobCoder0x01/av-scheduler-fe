@@ -1,12 +1,15 @@
 import express from "express";
 import { execute, query } from "../lib/db";
+import { format } from "date-fns";
 
 const calendarEventsRouter = express.Router();
 
 // GET all calendar events
 calendarEventsRouter.get("/", async (req, res) => {
   try {
-    const dbResponse = await query(`SELECT * FROM calendar_events`);
+    const dbResponse = await query(
+      `SELECT * FROM calendar_events ce ORDER BY ce.start, ce.end`
+    );
     res.status(200).json({
       message: "Calendar events fetched successfully",
       data: dbResponse,
@@ -54,6 +57,13 @@ calendarEventsRouter.get("/:id", async (req, res) => {
 // POST new calendar events
 calendarEventsRouter.post("/", async (req, res) => {
   try {
+    const getMonthFromDate = (date: number | Date) => {
+      if (typeof date === "number") {
+        date = new Date(date * 1000); // Convert seconds to milliseconds
+      }
+      return format(date, "MM");
+    };
+
     const data = req.body;
     if (!(data?.length >= 1)) {
       throw new Error("Calendar event data is required");
@@ -68,7 +78,7 @@ calendarEventsRouter.post("/", async (req, res) => {
         valuesString += ", (?, ?, ?, ?, ?, ?, ?)";
       }
       valuesArray.push(
-        item.summary,
+        `${getMonthFromDate(item.start)} ${item.summary}`,
         item.start,
         item.end,
         item.description,

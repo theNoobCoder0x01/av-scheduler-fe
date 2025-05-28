@@ -1,6 +1,7 @@
 import path from "path";
 import { Database, open } from "sqlite";
 import sqlite3 from "sqlite3";
+import { APP_CONFIG_DIR } from "./settings";
 
 let db: Database | null = null;
 
@@ -11,7 +12,7 @@ async function connectDB() {
 
   db = await open({
     filename: path.resolve(
-      "/Users/thenoob0x01/Documents/hrishi/seva/av-scheduler/av-scheduler-fe/db.sqlite"
+      `${APP_CONFIG_DIR}/db.sqlite`
     ), // Path to your database file
     driver: sqlite3.Database,
   });
