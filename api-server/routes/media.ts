@@ -12,7 +12,8 @@ mediaRouter.get("/stream/:encodedPath", (req, res) => {
     
     // Security check - ensure file exists and is within allowed directories
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: "File not found" });
+      res.status(404).json({ error: "File not found" });
+      return;
     }
 
     const stat = fs.statSync(filePath);
