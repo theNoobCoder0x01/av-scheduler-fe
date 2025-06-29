@@ -85,10 +85,10 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
       if (controlsTimeout) clearTimeout(controlsTimeout);
       
       // Only hide if not hovering and playing
-      if (!isHovering && playerState.isPlaying) {
+      if (!isHovering && playerState.isPlaying && mediaType === 'video') {
         const timeout = setTimeout(() => {
           setShowControls(false);
-        }, 2000); // Hide after 2 seconds
+        }, 3000); // Hide after 3 seconds
         setControlsTimeout(timeout);
       }
     };
@@ -462,7 +462,8 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
       <CardContent className="p-0 relative">
         <div 
           ref={containerRef}
-          className={`relative group ${isFullscreen ? 'fixed inset-0 z-50 bg-black' : ''}`}
+          className={`relative group @container ${isFullscreen ? 'fixed inset-0 z-50 bg-black' : ''}`}
+          style={{ containerType: 'inline-size' }}
         >
           <video
             ref={videoRef}
@@ -504,29 +505,31 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
             </div>
           )}
 
-          {/* Compact Controls Overlay */}
+          {/* Responsive Controls Overlay */}
           <div className={`absolute inset-0 transition-opacity duration-300 ${
             showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}>
             
-            {/* Top Info Bar (only in fullscreen) */}
-            {isFullscreen && (
-              <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/60 to-transparent p-4">
+            {/* Top Info Bar (only in fullscreen or large containers) */}
+            {(isFullscreen || true) && (
+              <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/60 to-transparent p-2 @lg:p-4">
                 <div className="flex items-center justify-between text-white">
-                  <div>
-                    <h3 className="font-semibold truncate">{currentTrackName}</h3>
-                    <p className="text-sm opacity-75">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold truncate text-sm @lg:text-base">{currentTrackName}</h3>
+                    <p className="text-xs @lg:text-sm opacity-75">
                       Track {playerState.currentIndex + 1} of {tracks.length}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleFullscreen}
-                    className="text-white hover:bg-white/20"
-                  >
-                    <Minimize className="h-5 w-5" />
-                  </Button>
+                  {isFullscreen && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={toggleFullscreen}
+                      className="text-white hover:bg-white/20 h-8 w-8 @lg:h-10 @lg:w-10 ml-2"
+                    >
+                      <Minimize className="h-4 w-4 @lg:h-5 @lg:w-5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
@@ -537,27 +540,27 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
                 size="icon"
                 onClick={playerState.isPlaying ? pause : play}
                 disabled={isLoading || (loadError !== null && retryCount >= 3)}
-                className="bg-black/50 hover:bg-black/70 text-white border-white/20 h-16 w-16 rounded-full backdrop-blur-sm"
+                className="bg-black/50 hover:bg-black/70 text-white border-white/20 rounded-full backdrop-blur-sm h-12 w-12 @md:h-16 @md:w-16"
                 style={{ 
                   opacity: playerState.isPlaying ? 0 : 1,
                   transition: 'opacity 0.3s ease'
                 }}
               >
                 {isLoading ? (
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <div className="h-5 w-5 @md:h-6 @md:w-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 ) : (
-                  <Play className="h-6 w-6" />
+                  <Play className="h-5 w-5 @md:h-6 @md:w-6" />
                 )}
               </Button>
             </div>
 
-            {/* Bottom Controls Bar */}
+            {/* Bottom Controls - Responsive Layout */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
               
               {/* Progress Bar */}
-              <div className="px-4 pt-4 pb-2">
-                <div className="flex items-center space-x-2 text-white text-xs">
-                  <span className="min-w-[35px]">{formatTime(playerState.currentTime)}</span>
+              <div className="px-2 @md:px-4 pt-2 @md:pt-4 pb-1 @md:pb-2">
+                <div className="flex items-center space-x-1 @md:space-x-2 text-white text-xs">
+                  <span className="min-w-[30px] @md:min-w-[35px] text-xs">{formatTime(playerState.currentTime)}</span>
                   <Slider
                     value={[playerState.currentTime]}
                     max={playerState.duration || 100}
@@ -566,121 +569,195 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
                     className="flex-1"
                     disabled={!playerState.duration || loadError !== null}
                   />
-                  <span className="min-w-[35px]">{formatTime(playerState.duration)}</span>
+                  <span className="min-w-[30px] @md:min-w-[35px] text-xs">{formatTime(playerState.duration)}</span>
                 </div>
               </div>
 
-              {/* Control Buttons */}
-              <div className="flex items-center justify-between px-4 pb-4">
+              {/* Control Buttons - Responsive Layout */}
+              <div className="px-2 @md:px-4 pb-2 @md:pb-4">
                 
-                {/* Left Controls */}
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={previousTrack}
-                    disabled={playerState.currentIndex === 0}
-                    className="text-white hover:bg-white/20 h-8 w-8"
-                  >
-                    <SkipBack className="h-4 w-4" />
-                  </Button>
-                  
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={playerState.isPlaying ? pause : play}
-                    disabled={isLoading || (loadError !== null && retryCount >= 3)}
-                    className="text-white hover:bg-white/20 h-8 w-8"
-                  >
-                    {isLoading ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    ) : playerState.isPlaying ? (
-                      <Pause className="h-4 w-4" />
-                    ) : (
-                      <Play className="h-4 w-4" />
-                    )}
-                  </Button>
-                  
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={nextTrack}
-                    disabled={playerState.currentIndex === tracks.length - 1}
-                    className="text-white hover:bg-white/20 h-8 w-8"
-                  >
-                    <SkipForward className="h-4 w-4" />
-                  </Button>
+                {/* Small Container Layout (< 400px) */}
+                <div className="@container-normal:hidden">
+                  {/* Compact single row for very small containers */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={previousTrack}
+                        disabled={playerState.currentIndex === 0}
+                        className="text-white hover:bg-white/20 h-7 w-7"
+                      >
+                        <SkipBack className="h-3 w-3" />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={playerState.isPlaying ? pause : play}
+                        disabled={isLoading || (loadError !== null && retryCount >= 3)}
+                        className="text-white hover:bg-white/20 h-7 w-7"
+                      >
+                        {isLoading ? (
+                          <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : playerState.isPlaying ? (
+                          <Pause className="h-3 w-3" />
+                        ) : (
+                          <Play className="h-3 w-3" />
+                        )}
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={nextTrack}
+                        disabled={playerState.currentIndex === tracks.length - 1}
+                        className="text-white hover:bg-white/20 h-7 w-7"
+                      >
+                        <SkipForward className="h-3 w-3" />
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center space-x-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={toggleMute}
+                        className="text-white hover:bg-white/20 h-7 w-7"
+                      >
+                        {isMuted || playerState.volume === 0 ? (
+                          <VolumeX className="h-3 w-3" />
+                        ) : (
+                          <Volume2 className="h-3 w-3" />
+                        )}
+                      </Button>
+                      
+                      {mediaType === 'video' && !isFullscreen && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={toggleFullscreen}
+                          className="text-white hover:bg-white/20 h-7 w-7"
+                        >
+                          <Maximize className="h-2 w-2" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Center Info (non-fullscreen) */}
-                {!isFullscreen && (
-                  <div className="text-center text-white flex-1 mx-4">
-                    <div className="text-sm font-medium truncate">{currentTrackName}</div>
-                    <div className="text-xs opacity-75">
-                      {playerState.currentIndex + 1} / {tracks.length}
+                {/* Medium+ Container Layout (>= 400px) */}
+                <div className="hidden @container-normal:block">
+                  <div className="flex items-center justify-between">
+                    
+                    {/* Left Controls */}
+                    <div className="flex items-center space-x-1 @lg:space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={previousTrack}
+                        disabled={playerState.currentIndex === 0}
+                        className="text-white hover:bg-white/20 h-8 w-8"
+                      >
+                        <SkipBack className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={playerState.isPlaying ? pause : play}
+                        disabled={isLoading || (loadError !== null && retryCount >= 3)}
+                        className="text-white hover:bg-white/20 h-8 w-8"
+                      >
+                        {isLoading ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : playerState.isPlaying ? (
+                          <Pause className="h-4 w-4" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={nextTrack}
+                        disabled={playerState.currentIndex === tracks.length - 1}
+                        className="text-white hover:bg-white/20 h-8 w-8"
+                      >
+                        <SkipForward className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </div>
-                )}
 
-                {/* Right Controls */}
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleShuffle}
-                    className={`text-white hover:bg-white/20 h-8 w-8 ${playerState.shuffle ? "text-blue-400" : ""}`}
-                  >
-                    <Shuffle className="h-3 w-3" />
-                  </Button>
-                  
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleRepeat}
-                    className={`text-white hover:bg-white/20 h-8 w-8 ${playerState.repeat !== 'none' ? "text-blue-400" : ""}`}
-                  >
-                    {playerState.repeat === 'one' ? (
-                      <Repeat1 className="h-3 w-3" />
-                    ) : (
-                      <Repeat className="h-3 w-3" />
-                    )}
-                  </Button>
+                    {/* Center Info (hidden on small, shown on medium+) */}
+                    <div className="hidden @lg:block text-center text-white flex-1 mx-4">
+                      <div className="text-sm font-medium truncate">{currentTrackName}</div>
+                      <div className="text-xs opacity-75">
+                        {playerState.currentIndex + 1} / {tracks.length}
+                      </div>
+                    </div>
 
-                  {/* Volume Control */}
-                  <div className="flex items-center space-x-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={toggleMute}
-                      className="text-white hover:bg-white/20 h-8 w-8"
-                    >
-                      {isMuted || playerState.volume === 0 ? (
-                        <VolumeX className="h-3 w-3" />
-                      ) : (
-                        <Volume2 className="h-3 w-3" />
+                    {/* Right Controls */}
+                    <div className="flex items-center space-x-1 @lg:space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleShuffle}
+                        className={`text-white hover:bg-white/20 h-8 w-8 ${playerState.shuffle ? "text-blue-400" : ""}`}
+                      >
+                        <Shuffle className="h-3 w-3" />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleRepeat}
+                        className={`text-white hover:bg-white/20 h-8 w-8 ${playerState.repeat !== 'none' ? "text-blue-400" : ""}`}
+                      >
+                        {playerState.repeat === 'one' ? (
+                          <Repeat1 className="h-3 w-3" />
+                        ) : (
+                          <Repeat className="h-3 w-3" />
+                        )}
+                      </Button>
+
+                      {/* Volume Control */}
+                      <div className="flex items-center space-x-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={toggleMute}
+                          className="text-white hover:bg-white/20 h-8 w-8"
+                        >
+                          {isMuted || playerState.volume === 0 ? (
+                            <VolumeX className="h-3 w-3" />
+                          ) : (
+                            <Volume2 className="h-3 w-3" />
+                          )}
+                        </Button>
+                        <div className="w-12 @lg:w-16">
+                          <Slider
+                            value={[playerState.volume]}
+                            max={1}
+                            step={0.01}
+                            onValueChange={([value]) => setVolume(value)}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+
+                      {mediaType === 'video' && !isFullscreen && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={toggleFullscreen}
+                          className="text-white hover:bg-white/20 h-8 w-8"
+                        >
+                          <Maximize className="h-3 w-3" />
+                        </Button>
                       )}
-                    </Button>
-                    <div className="w-16">
-                      <Slider
-                        value={[playerState.volume]}
-                        max={1}
-                        step={0.01}
-                        onValueChange={([value]) => setVolume(value)}
-                        className="w-full"
-                      />
                     </div>
                   </div>
-
-                  {mediaType === 'video' && !isFullscreen && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={toggleFullscreen}
-                      className="text-white hover:bg-white/20 h-8 w-8"
-                    >
-                      <Maximize className="h-3 w-3" />
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
@@ -689,7 +766,7 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
           {/* Error Display */}
           {loadError && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <div className="bg-red-900/90 text-white p-4 rounded-lg max-w-md text-center">
+              <div className="bg-red-900/90 text-white p-4 rounded-lg max-w-md text-center mx-4">
                 <p className="text-sm mb-2">⚠️ {loadError}</p>
                 {retryCount < 3 && (
                   <Button
@@ -706,13 +783,85 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
           )}
         </div>
 
-        {/* Debug Info (non-fullscreen development only) */}
+        {/* External Controls for Small Video Players */}
+        {mediaType === 'video' && !isFullscreen && (
+          <div className="@container-normal:hidden p-4 bg-muted/50">
+            <div className="space-y-3">
+              {/* Track Info */}
+              <div className="text-center">
+                <div className="font-medium text-sm truncate">{currentTrackName}</div>
+                <div className="text-xs text-muted-foreground">
+                  Track {playerState.currentIndex + 1} of {tracks.length}
+                </div>
+              </div>
+              
+              {/* Extended Controls */}
+              <div className="flex items-center justify-center space-x-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleShuffle}
+                  className={playerState.shuffle ? "text-blue-500" : ""}
+                >
+                  <Shuffle className="h-4 w-4" />
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleRepeat}
+                  className={playerState.repeat !== 'none' ? "text-blue-500" : ""}
+                >
+                  {playerState.repeat === 'one' ? (
+                    <Repeat1 className="h-4 w-4" />
+                  ) : (
+                    <Repeat className="h-4 w-4" />
+                  )}
+                </Button>
+
+                {/* Volume Control */}
+                <div className="flex items-center space-x-2 flex-1 max-w-32">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={toggleMute}
+                  >
+                    {isMuted || playerState.volume === 0 ? (
+                      <VolumeX className="h-4 w-4" />
+                    ) : (
+                      <Volume2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Slider
+                    value={[playerState.volume]}
+                    max={1}
+                    step={0.01}
+                    onValueChange={([value]) => setVolume(value)}
+                    className="flex-1"
+                  />
+                  <span className="text-xs text-muted-foreground w-8">
+                    {Math.round(playerState.volume * 100)}%
+                  </span>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleFullscreen}
+                >
+                  <Maximize className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Debug Info (development only) */}
         {process.env.NODE_ENV === 'development' && !isFullscreen && (
           <div className="mt-4 p-2 bg-muted rounded text-xs">
             <p><strong>Media Type:</strong> {mediaType}</p>
             <p><strong>Show Controls:</strong> {showControls ? 'Yes' : 'No'}</p>
-            <p><strong>Hovering:</strong> {isHovering ? 'Yes' : 'No'}</p>
-            <p><strong>Playing:</strong> {playerState.isPlaying ? 'Yes' : 'No'}</p>
+            <p><strong>Container Width:</strong> Use browser dev tools to see @container queries</p>
             <p><strong>Fullscreen:</strong> {isFullscreen ? 'Yes' : 'No'}</p>
           </div>
         )}
