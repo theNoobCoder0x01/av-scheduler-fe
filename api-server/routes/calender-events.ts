@@ -126,19 +126,27 @@ calendarEventsRouter.put("/:id", async (req, res) => {
       throw new Error("Calendar event ID is required");
     }
 
+    const getMonthFromDate = (date: number | Date) => {
+      if (typeof date === "number") {
+        date = new Date(date * 1000); // Convert seconds to milliseconds
+      }
+      return format(date, "MM");
+    };
+
     const dbResponse = await execute(
       `UPDATE calendar_events
              SET summary = ?, start = ?, end = ?, description = ?,
-                     location = ?, uid = ?, raw_string = ?
+                     location = ?, uid = ?, raw_string = ?, updated_at = ?
              WHERE id = ?`,
       [
-        data.summary,
+        data.summary ? `${getMonthFromDate(data.start)} ${data.summary}` : data.summary,
         data.start,
         data.end,
         data.description,
         data.location,
         data.uid,
-        data.rawString,
+        data.rawString || JSON.stringify(data),
+        Math.floor(new Date().getTime() / 1000),
         calendarEventId,
       ]
     );

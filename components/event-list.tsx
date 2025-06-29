@@ -1,22 +1,15 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { setEvents } from "@/lib/store/slices/eventsSlice";
-import { isFullDayEvent } from "@/lib/utils";
 import { ICalendarEvent } from "@/models/calendar-event.model";
 import { CalendarEventService } from "@/services/calendar-event.service";
-import { format } from "date-fns";
-import { Calendar, Clock, MapPin, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import EventCard from "./event-card";
 
 interface EventListProps {
   events: ICalendarEvent[];
@@ -25,10 +18,15 @@ interface EventListProps {
 export default function EventList({ events }: EventListProps) {
   const { toast } = useToast();
   const dispatch = useAppDispatch();
-
   const [searchTerm, setSearchTerm] = useState("");
+  const [localEvents, setLocalEvents] = useState<ICalendarEvent[]>(events);
 
-  const filteredEvents = events.filter(
+  // Update local events when props change
+  useEffect(() => {
+    setLocalEvents(events);
+  }, [events]);
+
+  const filteredEvents = localEvents.filter(
     (event) =>
       event.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
       event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -39,8 +37,8 @@ export default function EventList({ events }: EventListProps) {
     try {
       const response = await CalendarEventService.getAllCalendarEvents();
       console.log("response events", response);
-
       dispatch(setEvents(response));
+      setLocalEvents(response);
     } catch (err) {
       toast({
         title: "Error fetching events",
@@ -50,30 +48,23 @@ export default function EventList({ events }: EventListProps) {
     }
   }, [dispatch, toast]);
 
-  const formatDate = (date: number | Date) => {
-    if (typeof date === "number") {
-      date = new Date(date * 1000); // Convert seconds to milliseconds
-    }
-    return format(date, "PPP"); // 'Apr 29, 2023'
+  const handleEventUpdate = (updatedEvent: ICalendarEvent) => {
+    const updatedEvents = localEvents.map((event) =>
+      event.uid === updatedEvent.uid ? updatedEvent : event
+    );
+    setLocalEvents(updatedEvents);
+    dispatch(setEvents(updatedEvents));
   };
 
-  const formatTime = (date: number | Date) => {
-    if (typeof date === "number") {
-      date = new Date(date * 1000); // Convert seconds to milliseconds
-    }
-    return format(date, "p"); // '12:00 PM'
-  };
-
-  const getEpochTimestamp = (date: number | Date) => {
-    if (typeof date === "number") {
-      date = new Date(date * 1000); // Convert seconds to milliseconds
-    }
-    return Math.floor(date.getTime() / 1000);
+  const handleEventDelete = (eventUid: string) => {
+    const updatedEvents = localEvents.filter((event) => event.uid !== eventUid);
+    setLocalEvents(updatedEvents);
+    dispatch(setEvents(updatedEvents));
   };
 
   const handleSaveEvents = async (uid?: string) => {
     try {
-      let eventsToSave = events.filter(
+      let eventsToSave = localEvents.filter(
         (calendarEvent) => !Boolean(calendarEvent.id?.toString()?.length)
       );
       if (uid?.length) {
@@ -119,11 +110,10 @@ export default function EventList({ events }: EventListProps) {
 
   const handleDeleteAllEvents = async () => {
     try {
-      let response = await CalendarEventService.deleteAllCalendarEvents();
-
+      await CalendarEventService.deleteAllCalendarEvents();
       toast({
         title: "All events deleted successfully",
-        description: "All unsaved events have been saved.",
+        description: "All events have been deleted.",
         variant: "default",
       });
       fetchEvents();
@@ -140,6 +130,11 @@ export default function EventList({ events }: EventListProps) {
     fetchEvents();
   }, [fetchEvents]);
 
+  const hasUnsavedEvents = localEvents.some(
+    (calendarEvent: ICalendarEvent) =>
+      !Boolean(calendarEvent.id?.toString()?.length)
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between space-x-4">
@@ -152,29 +147,17 @@ export default function EventList({ events }: EventListProps) {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        {events.some(
-          (calendarEvent: ICalendarEvent) =>
-            !Boolean(calendarEvent.id?.toString()?.length)
-        ) ? (
-          <p className="text-sm">
-            Some events are not saved in the database.{" "}
-            <a
-              className="font-semibold cursor-pointer text-[#1e3caa] dark:text-[#4dacff] hover:underline"
-              onClick={() => handleSaveEvents()}
-            >
-              Click to save events
-            </a>
-          </p>
-        ) : (
-          <p className="text-sm">
-            <a
-              className="font-semibold cursor-pointer text-[#1e3caa] dark:text-[#4dacff] hover:underline"
-              onClick={() => handleDeleteAllEvents()}
-            >
-              Delete all events
-            </a>
-          </p>
-        )}
+        <div className="flex gap-2">
+          {hasUnsavedEvents ? (
+            <Button onClick={() => handleSaveEvents()} variant="default">
+              Save All Events
+            </Button>
+          ) : (
+            <Button onClick={handleDeleteAllEvents} variant="destructive">
+              Delete All Events
+            </Button>
+          )}
+        </div>
       </div>
 
       {filteredEvents.length === 0 && (
@@ -185,139 +168,12 @@ export default function EventList({ events }: EventListProps) {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredEvents.map((event) => (
-          <TooltipProvider key={event.uid}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <CardHeader className="relative pb-2">
-                    <CardTitle className="line-clamp-2 text-lg">
-                      {event.summary}
-                    </CardTitle>
-                    <div className="absolute top-[0.75rem] right-[0.75rem] flex justify-between items-center">
-                      {event.id ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            CalendarEventService.deleteCalendarEvent(
-                              event.id ?? ""
-                            )
-                              .then(() => {
-                                toast({
-                                  title: "Event deleted",
-                                  description:
-                                    "The event has been removed successfully.",
-                                  variant: "default",
-                                });
-                                fetchEvents();
-                              })
-                              .catch(() => {
-                                toast({
-                                  title: "Error deleting event",
-                                  description: "Failed to delete the event.",
-                                  variant: "destructive",
-                                });
-                              });
-                          }}
-                          className="text-gray-400 hover:text-red-500"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                          </svg>
-                        </button>
-                      ) : (
-                        // <a
-                        //   className="font-semibold cursor-pointer text-[#1e3caa] dark:text-[#4dacff] hover:underline"
-                        //   onClick={() => handleSaveEvents(event.uid)}
-                        // >
-                        //   Save event
-                        // </a>
-                        <span className="text-xs text-yellow-500">
-                          Not saved
-                        </span>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-start">
-                        <Calendar className="h-4 w-4 mr-2 mt-1 text-muted-foreground" />
-                        <div>
-                          {formatDate(event.start)}
-                          {!isFullDayEvent(event.start, event.end) && (
-                            <>
-                              <div className="flex items-center mt-1">
-                                <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                                <span>
-                                  {formatTime(event.start)} -{" "}
-                                  {formatTime(event.end)}
-                                </span>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {event.location && (
-                        <div className="flex items-start">
-                          <MapPin className="h-4 w-4 mr-2 mt-1 text-muted-foreground" />
-                          <span className="text-sm">{event.location}</span>
-                        </div>
-                      )}
-
-                      {event.description && (
-                        <div className="mt-2 text-sm text-muted-foreground line-clamp-2">
-                          {event.description}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-sm">
-                <div className="space-y-2">
-                  <p className="font-semibold">{event.summary}</p>
-                  <div className="text-sm">
-                    <p>
-                      <strong>Start:</strong> {formatDate(event.start)}{" "}
-                      {formatTime(event.start)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Epoch: {getEpochTimestamp(event.start)}
-                    </p>
-                    <p>
-                      <strong>End:</strong> {formatDate(event.end)}{" "}
-                      {formatTime(event.end)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Epoch: {getEpochTimestamp(event.end)}
-                    </p>
-                  </div>
-                  {event.location && (
-                    <p>
-                      <strong>Location:</strong> {event.location}
-                    </p>
-                  )}
-                  {event.description && (
-                    <p>
-                      <strong>Description:</strong> {event.description}
-                    </p>
-                  )}
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <EventCard
+            key={event.uid}
+            event={event}
+            onEventUpdate={handleEventUpdate}
+            onEventDelete={handleEventDelete}
+          />
         ))}
       </div>
     </div>

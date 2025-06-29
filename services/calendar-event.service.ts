@@ -81,7 +81,18 @@ export class CalendarEventService {
         throw new Error("Failed to update calendar event");
       }
 
-      return response.data;
+      // Map the response to match the expected format
+      const updatedEvent = response.data;
+      return {
+        summary: updatedEvent.summary,
+        start: Number(updatedEvent.start),
+        end: Number(updatedEvent.end),
+        description: updatedEvent.description,
+        location: updatedEvent.location,
+        uid: updatedEvent.uid,
+        rawString: updatedEvent.raw_string,
+        id: updatedEvent.id,
+      };
     } catch (error) {
       throw new Error("Failed to update calendar event");
     }
