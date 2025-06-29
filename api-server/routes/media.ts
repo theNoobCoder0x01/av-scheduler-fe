@@ -85,7 +85,8 @@ mediaRouter.get("/metadata/:encodedPath", async (req, res) => {
     const filePath = decodeURIComponent(req.params.encodedPath);
     
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: "File not found" });
+      res.status(404).json({ error: "File not found" });
+      return;
     }
 
     const stat = fs.statSync(filePath);
