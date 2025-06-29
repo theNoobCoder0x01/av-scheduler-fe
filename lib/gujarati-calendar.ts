@@ -1,28 +1,50 @@
-// Gujarati calendar month names and their variations
+// Comprehensive Gujarati calendar month names and their variations
 export const GUJARATI_MONTHS = {
-  // Chaitra (March-April)
+  // Chaitra (March-April) - Month 03
   'chaitra': ['chaitra', 'chaitri', 'chait'],
+  
+  // Vaishakh (April-May) - Month 04  
   'vaishakh': ['vaishakh', 'vaisakh', 'baisakh'],
+  
+  // Jyeshtha/Jeth (May-June) - Month 05
   'jyeshtha': ['jyeshtha', 'jyesht', 'jeth'],
+  
+  // Ashadh (June-July) - Month 06
   'ashadh': ['ashadh', 'ashad', 'ashar'],
+  
+  // Shravan (July-August) - Month 07
   'shravan': ['shravan', 'savan', 'saavan'],
-  'bhadrapad': ['bhadrapad', 'bhadra', 'bhado'],
+  
+  // Bhadrapad/Bhadarvo (August-September) - Month 08
+  'bhadrapad': ['bhadrapad', 'bhadra', 'bhado', 'bhadarvo'],
+  
+  // Ashwin/Aso (September-October) - Month 09
   'ashwin': ['ashwin', 'aso', 'aaso'],
-  'kartik': ['kartik', 'kartika', 'karthik'],
-  'margashirsha': ['margashirsha', 'margshirsh', 'aghan'],
+  
+  // Kartik/Kartak (October-November) - Month 10
+  'kartik': ['kartik', 'kartika', 'karthik', 'kartak'],
+  
+  // Margashirsha/Magshar (November-December) - Month 11
+  'margashirsha': ['margashirsha', 'margshirsh', 'aghan', 'magshar'],
+  
+  // Paush/Posh (December-January) - Month 12
   'paush': ['paush', 'posh', 'pausha'],
-  'magh': ['magh', 'mag', 'magha'],
-  'falgun': ['falgun', 'phalgun', 'fagun']
+  
+  // Magh/Maha (January-February) - Month 01
+  'magh': ['magh', 'mag', 'magha', 'maha'],
+  
+  // Falgun/Fagan (February-March) - Month 02
+  'falgun': ['falgun', 'phalgun', 'fagun', 'fagan']
 };
 
 // Common Gujarati calendar terms (kept for reference but not removed)
 export const GUJARATI_CALENDAR_TERMS = [
   'sud', 'vad', 'shukla', 'krishna', 'paksha',
-  'purnima', 'amavasya', 'ekadashi', 'chaturdashi',
-  'pancham', 'saptam', 'navami', 'dashami',
+  'purnima', 'punam', 'amavasya', 'amas', 'ekadashi', 'chaturdashi',
+  'pancham', 'saptam', 'navami', 'dashami', 'dasham',
   'bij', 'trij', 'choth', 'pancham', 'chhath',
-  'satam', 'aatham', 'nom', 'dasham', 'agiyaras',
-  'baras', 'teras', 'chaudas', 'poonam'
+  'satam', 'aatham', 'atham', 'nom', 'dasham', 'agiyaras',
+  'baras', 'teras', 'chaudas', 'poonam', 'padvo'
 ];
 
 /**
@@ -35,6 +57,7 @@ export function removeGujaratiMonthNames(summary: string): string {
 
   // Remove ONLY Gujarati month names (not other calendar terms)
   Object.values(GUJARATI_MONTHS).flat().forEach(monthName => {
+    // Create a more precise regex that matches whole words and handles word boundaries
     const regex = new RegExp(`\\b${monthName}\\b`, 'gi');
     cleanedSummary = cleanedSummary.replace(regex, '');
   });
@@ -75,4 +98,30 @@ export function processEventSummary(summary: string, startDate: number | Date): 
   }
   
   return cleanedSummary;
+}
+
+/**
+ * Test function to verify month name removal (for development/debugging)
+ */
+export function testMonthRemoval() {
+  const testCases = [
+    "Posh Sud Bij",
+    "Maha Sud Trij", 
+    "Fagan Sud Padvo",
+    "Chaitra Sud Choth",
+    "Vaishakh Sud Ekadashi (FAST)",
+    "Jeth Sud Bij",
+    "Ashadh Sud Chhath",
+    "Shravan Sud Atham",
+    "Bhadarvo Sud Nom",
+    "Aso Sud Ekadashi (FAST)",
+    "Kartak Sud Dasham",
+    "Magshar Sud Ekadashi (FAST)"
+  ];
+
+  console.log("Testing Gujarati month name removal:");
+  testCases.forEach(testCase => {
+    const result = removeGujaratiMonthNames(testCase);
+    console.log(`"${testCase}" → "${result}"`);
+  });
 }
