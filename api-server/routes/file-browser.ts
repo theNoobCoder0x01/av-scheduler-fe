@@ -20,12 +20,14 @@ fileBrowserRouter.get("/browse", (req, res) => {
 
     // Security check - ensure path exists
     if (!fs.existsSync(targetPath)) {
-      return res.status(404).json({ error: "Directory not found" });
+      res.status(404).json({ error: "Directory not found" });
+      return;
     }
 
     const stat = fs.statSync(targetPath);
     if (!stat.isDirectory()) {
-      return res.status(400).json({ error: "Path is not a directory" });
+      res.status(400).json({ error: "Path is not a directory" });
+      return;
     }
 
     const items = fs.readdirSync(targetPath).map(item => {
