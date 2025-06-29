@@ -211,7 +211,7 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 flex-shrink-0">
         <CardTitle className="flex items-center justify-between">
           <span>File Browser</span>
           {selectedFiles.size > 0 && (
@@ -285,12 +285,12 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
         {/* Supported Formats Info */}
         {mediaOnly && (
           <div className="text-xs text-muted-foreground">
-            <p>Supported formats: MP4, WebM, MOV, AVI, MKV, MP3, WAV, FLAC, AAC, and many more</p>
+            <p>Supported formats: MP3, MP4, WebM, MOV, AVI, MKV, WAV, FLAC, AAC, and many more</p>
           </div>
         )}
       </CardHeader>
 
-      <CardContent className="flex-1 p-0">
+      <CardContent className="flex-1 p-0 overflow-hidden">
         <ScrollArea className="h-full">
           {isLoading ? (
             <div className="flex items-center justify-center h-32">

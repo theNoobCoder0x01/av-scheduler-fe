@@ -18,6 +18,19 @@ export interface PlaylistCheckResult {
   possibleFilenames: string[];
 }
 
+export interface CreatePlaylistRequest {
+  name: string;
+  tracks: string[];
+  savePath: string;
+  eventId?: string;
+}
+
+export interface CreatePlaylistResponse {
+  success: boolean;
+  filePath: string;
+  message: string;
+}
+
 export class PlaylistService {
   static async getAllPlaylists(): Promise<{
     playlists: PlaylistInfo[];
@@ -49,6 +62,15 @@ export class PlaylistService {
       };
     } catch (error) {
       throw new Error("Failed to check playlist existence");
+    }
+  }
+
+  static async createPlaylist(request: CreatePlaylistRequest): Promise<CreatePlaylistResponse> {
+    try {
+      const { data: response } = await axios.post(`${API_BASE_URL}/playlists/create`, request);
+      return response;
+    } catch (error) {
+      throw new Error("Failed to create playlist");
     }
   }
 }

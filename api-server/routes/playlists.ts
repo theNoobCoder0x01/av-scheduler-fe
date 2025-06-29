@@ -101,4 +101,69 @@ playlistsRouter.get("/check/:name", async (req, res) => {
   }
 });
 
+// POST create new playlist
+playlistsRouter.post("/create", async (req, res) => {
+  try {
+    const { name, tracks, savePath, eventId } = req.body;
+
+    if (!name || !tracks || !Array.isArray(tracks) || tracks.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid request: name and tracks array are required",
+      });
+      return;
+    }
+
+    const settings = getSettings();
+    const targetPath = savePath || settings.playlistFolderPath;
+
+    // Ensure the target directory exists
+    if (!fs.existsSync(targetPath)) {
+      fs.mkdirSync(targetPath, { recursive: true });
+    }
+
+    // Clean filename for file system compatibility
+    const cleanName = name.replace(/[<>:"/\\|?*]/g, "_");
+    const fileName = cleanName.endsWith('.m3u') ? cleanName : `${cleanName}.m3u`;
+    const filePath = path.join(targetPath, fileName);
+
+    // Generate M3U content
+    let m3uContent = "#EXTM3U\n";
+    
+    for (const trackPath of tracks) {
+      // Extract filename from path for display
+      const trackName = path.basename(trackPath);
+      const nameWithoutExt = path.parse(trackName).name;
+      
+      // Add EXTINF line with track info
+      m3uContent += `#EXTINF:-1,${nameWithoutExt}\n`;
+      m3uContent += `${trackPath}\n`;
+    }
+
+    // Write the playlist file
+    fs.writeFileSync(filePath, m3uContent, 'utf8');
+
+    console.log(`✅ Playlist created: ${filePath}`);
+
+    res.status(201).json({
+      success: true,
+      filePath,
+      message: `Playlist "${fileName}" created successfully with ${tracks.length} tracks`,
+      data: {
+        name: fileName,
+        path: filePath,
+        trackCount: tracks.length,
+        eventId: eventId || null,
+      },
+    });
+  } catch (err: any) {
+    console.error("Error creating playlist:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create playlist",
+      error: err.message,
+    });
+  }
+});
+
 export default playlistsRouter;

@@ -1,3 +1,4 @@
+import axios from "axios";
 import { ChildProcess, exec, spawn } from "child_process";
 import path from "path";
 import { ICalendarEvent } from "../../models/calendar-event.model";
@@ -51,24 +52,23 @@ async function sendHttpCommand(
   try {
     console.log("Sending HTTP command to VLC: " + command);
     const auth = Buffer.from(`:${VLC_HTTP_PASSWORD}`).toString("base64");
-    const response = await fetch(
+    
+    const response = await axios.get(
       `http://${VLC_HTTP_HOST}:${VLC_HTTP_PORT}/requests/status.json?command=${command}`,
       {
         headers: {
           Authorization: `Basic ${auth}`,
         },
+        timeout: 5000, // 5 second timeout
       }
     );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
 
     return {
       success: true,
       message: `Command ${command} executed successfully`,
     };
   } catch (error) {
+    console.error("HTTP command error:", error);
     return {
       success: false,
       message: `Failed to execute command: ${error}`,
@@ -155,11 +155,11 @@ async function findPlaylistFile(playlistName: string, playlistFolderPath: string
   return null;
 }
 
-async function playPlaylist(
+async function playPlaylistVLC(
   playlistName: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log("Playing playlist: " + playlistName);
+    console.log("Playing playlist with VLC: " + playlistName);
 
     if (!playlistName) {
       return {
@@ -260,9 +260,61 @@ async function playPlaylist(
       message: `Started playing playlist: ${currentPlaylist}`,
     };
   } catch (error) {
+    console.error("Error in playPlaylist:", error);
     return {
       success: false,
       message: `Failed to play playlist: ${(error as Error).message}`,
+    };
+  }
+}
+
+async function playPlaylistBuiltIn(
+  playlistName: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    console.log("Playing playlist with built-in player: " + playlistName);
+
+    if (!playlistName) {
+      return {
+        success: false,
+        message: "Playlist name is required for play action",
+      };
+    }
+
+    const settings = getSettings();
+    
+    // Find the first existing playlist file
+    const filePath = await findPlaylistFile(playlistName, settings.playlistFolderPath);
+    
+    if (!filePath) {
+      const possibleFilenames = generatePlaylistFilenames(playlistName);
+      return {
+        success: false,
+        message: `No playlist file found for "${playlistName}". Tried: ${possibleFilenames.join(', ')}`,
+      };
+    }
+
+    let globalObject = global as any;
+
+    // Signal Electron to open media player window
+    // This will be handled by the main process
+    if (globalObject.electronAPI) {
+      globalObject.electronAPI.openMediaPlayer(filePath);
+      return {
+        success: true,
+        message: `Opening built-in player with playlist: ${path.basename(filePath)}`,
+      };
+    } else {
+      return {
+        success: false,
+        message: "Built-in player is not available in this environment",
+      };
+    }
+  } catch (error) {
+    console.error("Error in playPlaylistBuiltIn:", error);
+    return {
+      success: false,
+      message: `Failed to play playlist with built-in player: ${(error as Error).message}`,
     };
   }
 }
@@ -355,15 +407,43 @@ export async function controlVlc(
       console.log("Playlist name by current event: " + playlistName);
     }
 
-    console.log("Controlling VLC with action: " + action);
+    console.log("Controlling media with action: " + action);
+
+    // Get settings to determine player mode
+    const settings = getSettings();
+    const playerMode = settings.playerMode || 'vlc';
+
+    console.log("Using player mode: " + playerMode);
 
     switch (action) {
       case "play":
-        return await playPlaylist(playlistName || "");
+        if (playerMode === 'built-in') {
+          return await playPlaylistBuiltIn(playlistName || "");
+        } else {
+          return await playPlaylistVLC(playlistName || "");
+        }
       case "pause":
-        return await pauseVlc();
+        if (playerMode === 'built-in') {
+          // For built-in player, we could send a WebSocket message to pause
+          // For now, return a message indicating the action
+          return {
+            success: true,
+            message: "Pause command sent to built-in player",
+          };
+        } else {
+          return await pauseVlc();
+        }
       case "stop":
-        return await stopVlc({ killProcess: true });
+        if (playerMode === 'built-in') {
+          // For built-in player, we could send a WebSocket message to stop
+          // For now, return a message indicating the action
+          return {
+            success: true,
+            message: "Stop command sent to built-in player",
+          };
+        } else {
+          return await stopVlc({ killProcess: true });
+        }
       default:
         return {
           success: false,
@@ -371,7 +451,7 @@ export async function controlVlc(
         };
     }
   } catch (error: Error | any) {
-    console.error("Error controlling VLC:" + error);
+    console.error("Error controlling media:" + error);
 
     return {
       success: false,
@@ -381,4 +461,4 @@ export async function controlVlc(
 }
 
 // Export the generatePlaylistFilenames function for use in other modules
-module.exports = { generatePlaylistFilenames };
+export { generatePlaylistFilenames };

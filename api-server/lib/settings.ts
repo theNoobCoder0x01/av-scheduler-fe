@@ -12,6 +12,7 @@ const SETTINGS_FILE = path.join(APP_CONFIG_DIR, "settings.json");
 // For now, it remains as per the original code.
 const defaultSettings: AppSettings = {
   playlistFolderPath: path.join(APP_CONFIG_DIR, "playlists"),
+  playerMode: 'vlc', // Default to VLC player
 };
 
 /**

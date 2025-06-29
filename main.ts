@@ -5,6 +5,7 @@ import { WebSocketServer } from "ws";
 import { startServer } from "./api-server";
 
 let mainWindow: BrowserWindow | null = null;
+let mediaPlayerWindow: BrowserWindow | null = null;
 let servers: {
   apiServer?: Server | null | undefined;
   webSocketServer?: WebSocketServer | null | undefined;
@@ -14,22 +15,30 @@ let servers: {
  * Starts the API server as a child process.
  */
 function startApiServer() {
-  // console.log("Starting API server...", process.execPath);
-  // const isPackaged = app.isPackaged;
-  // const basePath = isPackaged
-  //   ? path.join(process.resourcesPath, "app.asar.unpacked")
-  //   : __dirname;
-  // const apiPath = path.join(basePath, "api-server", "index.js");
-  // console.log("apiPath", apiPath);
-  // apiProcess = spawn("node", [apiPath], { stdio: "inherit" });
-  // apiProcess.on("error", (err: Error) => {
-  //   console.error("Failed to start API server:", err);
-  // });
-  // apiProcess;
   servers = startServer(() => {
     // Start Express server first
     createMainWindow(); // Then create the Electron window
+    
+    // Set up global API for the backend to communicate with Electron
+    setupGlobalElectronAPI();
   });
+}
+
+/**
+ * Sets up global API for backend to communicate with Electron
+ */
+function setupGlobalElectronAPI() {
+  (global as any).electronAPI = {
+    openMediaPlayer: (playlistPath: string) => {
+      createMediaPlayerWindow(playlistPath);
+    },
+    closeMediaPlayer: () => {
+      if (mediaPlayerWindow) {
+        mediaPlayerWindow.close();
+        mediaPlayerWindow = null;
+      }
+    }
+  };
 }
 
 /**
@@ -54,11 +63,73 @@ function createMainWindow() {
   });
 }
 
+/**
+ * Creates a media player window for the built-in player
+ */
+function createMediaPlayerWindow(playlistPath?: string) {
+  // Close existing media player window if open
+  if (mediaPlayerWindow) {
+    mediaPlayerWindow.close();
+  }
+
+  mediaPlayerWindow = new BrowserWindow({
+    width: 1000,
+    height: 700,
+    title: "BAPS Media Player",
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, "preload.js"),
+    },
+    // Make it a separate window
+    parent: mainWindow || undefined,
+    modal: false,
+    show: false, // Don't show until ready
+  });
+
+  // Load the media player page with playlist parameter
+  const mediaPlayerUrl = playlistPath 
+    ? `http://localhost:8082/media-player?playlist=${encodeURIComponent(playlistPath)}`
+    : `http://localhost:8082/media-player`;
+    
+  mediaPlayerWindow.loadURL(mediaPlayerUrl);
+
+  // Show window when ready
+  mediaPlayerWindow.once('ready-to-show', () => {
+    mediaPlayerWindow?.show();
+    mediaPlayerWindow?.focus();
+  });
+
+  mediaPlayerWindow.on("closed", () => {
+    mediaPlayerWindow = null;
+  });
+
+  // Optional: Set up communication between main and media player windows
+  mediaPlayerWindow.webContents.on('did-finish-load', () => {
+    if (playlistPath) {
+      // Send playlist path to the media player window
+      mediaPlayerWindow?.webContents.send('load-playlist', playlistPath);
+    }
+  });
+}
+
 ipcMain.handle("open-folder-dialog", async () => {
   const result = await dialog.showOpenDialog({
     properties: ["openDirectory"],
   });
   return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0];
+});
+
+// Handle media player window creation from renderer process
+ipcMain.handle("open-media-player", async (event, playlistPath?: string) => {
+  createMediaPlayerWindow(playlistPath);
+});
+
+ipcMain.handle("close-media-player", async () => {
+  if (mediaPlayerWindow) {
+    mediaPlayerWindow.close();
+    mediaPlayerWindow = null;
+  }
 });
 
 /**
