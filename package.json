@@ -38,7 +38,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "api:dev": "ts-node-dev api-server/index.ts",
+    "api:dev": "npx ts-node-dev api-server/index.ts",
     "api:build": "tsc",
     "electron:dev": "cross-env NODE_ENV=development electron .",
     "electron:build": "rm -rf dist && next build && rm -rf dist && tsc && npm run api:build && electron-builder --mac --arm64 --x64"
