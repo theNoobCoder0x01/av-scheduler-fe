@@ -147,7 +147,8 @@ fileBrowserRouter.get("/search", (req, res) => {
     }
 
     if (!fs.existsSync(searchPath)) {
-      return res.status(404).json({ error: "Search path not found" });
+      res.status(404).json({ error: "Search path not found" });
+      return;
     }
 
     const results: Array<{
