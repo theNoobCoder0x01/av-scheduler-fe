@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
@@ -28,6 +30,7 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChange }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [playerState, setPlayerState] = useState<PlayerState>({
     isPlaying: false,
@@ -48,6 +51,7 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
   const [showControls, setShowControls] = useState(true);
   const [controlsTimeout, setControlsTimeout] = useState<NodeJS.Timeout | null>(null);
   const [mediaType, setMediaType] = useState<'audio' | 'video'>('video');
+  const [isHovering, setIsHovering] = useState(false);
 
   // Initialize player
   useEffect(() => {
@@ -75,32 +79,55 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
     return () => WebSocketService.removeListener(handlePlayerCommand);
   }, []);
 
-  // Auto-hide controls in fullscreen
+  // Auto-hide controls logic
   useEffect(() => {
-    if (isFullscreen) {
-      const hideControls = () => {
-        if (controlsTimeout) clearTimeout(controlsTimeout);
-        const timeout = setTimeout(() => setShowControls(false), 3000);
+    const hideControls = () => {
+      if (controlsTimeout) clearTimeout(controlsTimeout);
+      
+      // Only hide if not hovering and playing
+      if (!isHovering && playerState.isPlaying) {
+        const timeout = setTimeout(() => {
+          setShowControls(false);
+        }, 2000); // Hide after 2 seconds
         setControlsTimeout(timeout);
-      };
+      }
+    };
 
-      const showControlsHandler = () => {
-        setShowControls(true);
-        hideControls();
-      };
-
-      document.addEventListener('mousemove', showControlsHandler);
+    const showControlsHandler = () => {
+      setShowControls(true);
       hideControls();
+    };
 
-      return () => {
-        document.removeEventListener('mousemove', showControlsHandler);
-        if (controlsTimeout) clearTimeout(controlsTimeout);
-      };
+    if (mediaType === 'video') {
+      // Show controls on mouse move
+      const container = containerRef.current;
+      if (container) {
+        container.addEventListener('mousemove', showControlsHandler);
+        container.addEventListener('mouseenter', () => {
+          setIsHovering(true);
+          setShowControls(true);
+        });
+        container.addEventListener('mouseleave', () => {
+          setIsHovering(false);
+          hideControls();
+        });
+        
+        // Initial hide timer
+        hideControls();
+
+        return () => {
+          container.removeEventListener('mousemove', showControlsHandler);
+          container.removeEventListener('mouseenter', () => setIsHovering(true));
+          container.removeEventListener('mouseleave', () => setIsHovering(false));
+          if (controlsTimeout) clearTimeout(controlsTimeout);
+        };
+      }
     } else {
+      // Always show controls for audio
       setShowControls(true);
       if (controlsTimeout) clearTimeout(controlsTimeout);
     }
-  }, [isFullscreen, controlsTimeout]);
+  }, [isHovering, playerState.isPlaying, mediaType, controlsTimeout]);
 
   const detectMediaType = useCallback((filePath: string): 'audio' | 'video' => {
     const ext = filePath.split('.').pop()?.toLowerCase() || '';
@@ -311,11 +338,11 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
   }, [isMuted, setVolume]);
 
   const toggleFullscreen = useCallback(() => {
-    if (!videoRef.current) return;
+    if (!containerRef.current) return;
 
     if (!isFullscreen) {
-      if (videoRef.current.requestFullscreen) {
-        videoRef.current.requestFullscreen();
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen();
       }
     } else {
       if (document.exitFullscreen) {
@@ -433,7 +460,10 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
   return (
     <Card className="w-full">
       <CardContent className="p-0 relative">
-        <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-black' : ''}`}>
+        <div 
+          ref={containerRef}
+          className={`relative group ${isFullscreen ? 'fixed inset-0 z-50 bg-black' : ''}`}
+        >
           <video
             ref={videoRef}
             onTimeUpdate={handleTimeUpdate}
@@ -443,7 +473,7 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
             onEnded={handleEnded}
             preload="metadata"
             crossOrigin="anonymous"
-            className={`w-full ${mediaType === 'video' ? 'aspect-video' : 'h-16'} bg-black`}
+            className={`w-full ${mediaType === 'video' ? 'aspect-video' : 'h-16'} bg-black cursor-pointer`}
             style={{ display: mediaType === 'audio' ? 'none' : 'block' }}
             controls={false}
             onClick={() => playerState.isPlaying ? pause() : play()}
@@ -451,172 +481,238 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
           
           {/* Audio visualization for audio files */}
           {mediaType === 'audio' && (
-            <div className="w-full h-32 bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-              <div className="text-white text-center">
+            <div className="w-full h-32 bg-gradient-to-r from-blue-500 via-purple-600 to-pink-500 flex items-center justify-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-black/20"></div>
+              <div className="text-white text-center z-10">
                 <div className="text-lg font-semibold mb-2">🎵 Audio Playing</div>
                 <div className="text-sm opacity-75">{currentTrackName}</div>
+              </div>
+              {/* Animated bars for audio visualization */}
+              <div className="absolute bottom-0 left-0 right-0 flex items-end justify-center space-x-1 h-8 opacity-30">
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white w-1 animate-pulse"
+                    style={{
+                      height: `${Math.random() * 100}%`,
+                      animationDelay: `${i * 0.1}s`,
+                      animationDuration: `${0.5 + Math.random() * 0.5}s`
+                    }}
+                  />
+                ))}
               </div>
             </div>
           )}
 
-          {/* Controls Overlay */}
-          <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300 ${
-            isFullscreen && !showControls ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          {/* Compact Controls Overlay */}
+          <div className={`absolute inset-0 transition-opacity duration-300 ${
+            showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}>
-            {/* Track Info */}
-            {!isFullscreen && (
-              <div className="text-center mb-4 text-white">
-                <h3 className="font-semibold text-lg truncate">{currentTrackName}</h3>
-                <p className="text-sm opacity-75">
-                  Track {playerState.currentIndex + 1} of {tracks.length}
-                </p>
-                {loadError && (
-                  <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded">
-                    <p className="text-sm text-red-600 dark:text-red-400">⚠️ {loadError}</p>
-                    {retryCount < 3 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={retryLoadTrack}
-                        className="mt-2"
-                      >
-                        Retry ({retryCount}/3)
-                      </Button>
-                    )}
+            
+            {/* Top Info Bar (only in fullscreen) */}
+            {isFullscreen && (
+              <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/60 to-transparent p-4">
+                <div className="flex items-center justify-between text-white">
+                  <div>
+                    <h3 className="font-semibold truncate">{currentTrackName}</h3>
+                    <p className="text-sm opacity-75">
+                      Track {playerState.currentIndex + 1} of {tracks.length}
+                    </p>
                   </div>
-                )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleFullscreen}
+                    className="text-white hover:bg-white/20"
+                  >
+                    <Minimize className="h-5 w-5" />
+                  </Button>
+                </div>
               </div>
             )}
 
-            {/* Progress Bar */}
-            <div className="mb-4">
-              <Slider
-                value={[playerState.currentTime]}
-                max={playerState.duration || 100}
-                step={1}
-                onValueChange={([value]) => seek(value)}
-                className="w-full"
-                disabled={!playerState.duration || loadError !== null}
-              />
-              <div className="flex justify-between text-xs text-white/75 mt-1">
-                <span>{formatTime(playerState.currentTime)}</span>
-                <span>{formatTime(playerState.duration)}</span>
-              </div>
-            </div>
-
-            {/* Controls */}
-            <div className="flex items-center justify-center space-x-4 mb-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleShuffle}
-                className={`text-white hover:bg-white/20 ${playerState.shuffle ? "text-blue-400" : ""}`}
-              >
-                <Shuffle className="h-4 w-4" />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={previousTrack}
-                disabled={playerState.currentIndex === 0}
-                className="text-white hover:bg-white/20"
-              >
-                <SkipBack className="h-4 w-4" />
-              </Button>
-              
+            {/* Center Play/Pause Button */}
+            <div className="absolute inset-0 flex items-center justify-center">
               <Button
                 size="icon"
                 onClick={playerState.isPlaying ? pause : play}
                 disabled={isLoading || (loadError !== null && retryCount >= 3)}
-                className="bg-white text-black hover:bg-white/90"
+                className="bg-black/50 hover:bg-black/70 text-white border-white/20 h-16 w-16 rounded-full backdrop-blur-sm"
+                style={{ 
+                  opacity: playerState.isPlaying ? 0 : 1,
+                  transition: 'opacity 0.3s ease'
+                }}
               >
                 {isLoading ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                ) : playerState.isPlaying ? (
-                  <Pause className="h-4 w-4" />
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 ) : (
-                  <Play className="h-4 w-4" />
+                  <Play className="h-6 w-6" />
                 )}
               </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={nextTrack}
-                disabled={playerState.currentIndex === tracks.length - 1}
-                className="text-white hover:bg-white/20"
-              >
-                <SkipForward className="h-4 w-4" />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleRepeat}
-                className={`text-white hover:bg-white/20 ${playerState.repeat !== 'none' ? "text-blue-400" : ""}`}
-              >
-                {playerState.repeat === 'one' ? (
-                  <Repeat1 className="h-4 w-4" />
-                ) : (
-                  <Repeat className="h-4 w-4" />
-                )}
-              </Button>
-
-              {mediaType === 'video' && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleFullscreen}
-                  className="text-white hover:bg-white/20"
-                >
-                  {isFullscreen ? (
-                    <Minimize className="h-4 w-4" />
-                  ) : (
-                    <Maximize className="h-4 w-4" />
-                  )}
-                </Button>
-              )}
             </div>
 
-            {/* Volume Control */}
-            <div className="flex items-center space-x-2">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={toggleMute}
-                className="text-white hover:bg-white/20"
-              >
-                {isMuted || playerState.volume === 0 ? (
-                  <VolumeX className="h-4 w-4" />
-                ) : (
-                  <Volume2 className="h-4 w-4" />
+            {/* Bottom Controls Bar */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+              
+              {/* Progress Bar */}
+              <div className="px-4 pt-4 pb-2">
+                <div className="flex items-center space-x-2 text-white text-xs">
+                  <span className="min-w-[35px]">{formatTime(playerState.currentTime)}</span>
+                  <Slider
+                    value={[playerState.currentTime]}
+                    max={playerState.duration || 100}
+                    step={1}
+                    onValueChange={([value]) => seek(value)}
+                    className="flex-1"
+                    disabled={!playerState.duration || loadError !== null}
+                  />
+                  <span className="min-w-[35px]">{formatTime(playerState.duration)}</span>
+                </div>
+              </div>
+
+              {/* Control Buttons */}
+              <div className="flex items-center justify-between px-4 pb-4">
+                
+                {/* Left Controls */}
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={previousTrack}
+                    disabled={playerState.currentIndex === 0}
+                    className="text-white hover:bg-white/20 h-8 w-8"
+                  >
+                    <SkipBack className="h-4 w-4" />
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={playerState.isPlaying ? pause : play}
+                    disabled={isLoading || (loadError !== null && retryCount >= 3)}
+                    className="text-white hover:bg-white/20 h-8 w-8"
+                  >
+                    {isLoading ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    ) : playerState.isPlaying ? (
+                      <Pause className="h-4 w-4" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={nextTrack}
+                    disabled={playerState.currentIndex === tracks.length - 1}
+                    className="text-white hover:bg-white/20 h-8 w-8"
+                  >
+                    <SkipForward className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Center Info (non-fullscreen) */}
+                {!isFullscreen && (
+                  <div className="text-center text-white flex-1 mx-4">
+                    <div className="text-sm font-medium truncate">{currentTrackName}</div>
+                    <div className="text-xs opacity-75">
+                      {playerState.currentIndex + 1} / {tracks.length}
+                    </div>
+                  </div>
                 )}
-              </Button>
-              <Slider
-                value={[playerState.volume]}
-                max={1}
-                step={0.01}
-                onValueChange={([value]) => setVolume(value)}
-                className="flex-1"
-              />
-              <span className="text-xs text-white/75 w-8">
-                {Math.round(playerState.volume * 100)}%
-              </span>
+
+                {/* Right Controls */}
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleShuffle}
+                    className={`text-white hover:bg-white/20 h-8 w-8 ${playerState.shuffle ? "text-blue-400" : ""}`}
+                  >
+                    <Shuffle className="h-3 w-3" />
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleRepeat}
+                    className={`text-white hover:bg-white/20 h-8 w-8 ${playerState.repeat !== 'none' ? "text-blue-400" : ""}`}
+                  >
+                    {playerState.repeat === 'one' ? (
+                      <Repeat1 className="h-3 w-3" />
+                    ) : (
+                      <Repeat className="h-3 w-3" />
+                    )}
+                  </Button>
+
+                  {/* Volume Control */}
+                  <div className="flex items-center space-x-1">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={toggleMute}
+                      className="text-white hover:bg-white/20 h-8 w-8"
+                    >
+                      {isMuted || playerState.volume === 0 ? (
+                        <VolumeX className="h-3 w-3" />
+                      ) : (
+                        <Volume2 className="h-3 w-3" />
+                      )}
+                    </Button>
+                    <div className="w-16">
+                      <Slider
+                        value={[playerState.volume]}
+                        max={1}
+                        step={0.01}
+                        onValueChange={([value]) => setVolume(value)}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  {mediaType === 'video' && !isFullscreen && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={toggleFullscreen}
+                      className="text-white hover:bg-white/20 h-8 w-8"
+                    >
+                      <Maximize className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
+
+          {/* Error Display */}
+          {loadError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <div className="bg-red-900/90 text-white p-4 rounded-lg max-w-md text-center">
+                <p className="text-sm mb-2">⚠️ {loadError}</p>
+                {retryCount < 3 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={retryLoadTrack}
+                    className="text-white border-white hover:bg-white/20"
+                  >
+                    Retry ({retryCount}/3)
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Debug Info */}
+        {/* Debug Info (non-fullscreen development only) */}
         {process.env.NODE_ENV === 'development' && !isFullscreen && (
           <div className="mt-4 p-2 bg-muted rounded text-xs">
-            <p><strong>Current Track:</strong> {playerState.currentTrack}</p>
             <p><strong>Media Type:</strong> {mediaType}</p>
-            <p><strong>Stream URL:</strong> {playerState.currentTrack ? MediaService.getStreamUrl(playerState.currentTrack) : 'None'}</p>
-            <p><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</p>
-            <p><strong>Error:</strong> {loadError || 'None'}</p>
-            <p><strong>Retry Count:</strong> {retryCount}/3</p>
-            <p><strong>Duration:</strong> {isFinite(playerState.duration) ? formatTime(playerState.duration) : 'Unknown'}</p>
+            <p><strong>Show Controls:</strong> {showControls ? 'Yes' : 'No'}</p>
+            <p><strong>Hovering:</strong> {isHovering ? 'Yes' : 'No'}</p>
+            <p><strong>Playing:</strong> {playerState.isPlaying ? 'Yes' : 'No'}</p>
             <p><strong>Fullscreen:</strong> {isFullscreen ? 'Yes' : 'No'}</p>
           </div>
         )}
