@@ -13,11 +13,12 @@ playlistsRouter.get("/", async (req, res) => {
 
     // Check if the playlist folder exists
     if (!fs.existsSync(playlistFolderPath)) {
-      return res.status(200).json({
+      res.status(200).json({
         message: "Playlist folder not found",
         data: [],
         folderPath: playlistFolderPath,
       });
+      return;
     }
 
     // Read all files in the playlist folder
