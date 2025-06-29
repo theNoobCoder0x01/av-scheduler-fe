@@ -106,7 +106,8 @@ playerControlRouter.post("/command", (req, res) => {
         playerState.repeat = modes[(currentIndex + 1) % modes.length];
         break;
       default:
-        return res.status(400).json({ error: "Unknown command" });
+        res.status(400).json({ error: "Unknown command" });
+        return;
     }
 
     // Broadcast command to all connected clients
@@ -133,7 +134,8 @@ playerControlRouter.post("/playlist", (req, res) => {
     const { tracks, startIndex = 0 } = req.body;
 
     if (!Array.isArray(tracks)) {
-      return res.status(400).json({ error: "Tracks must be an array" });
+      res.status(400).json({ error: "Tracks must be an array" });
+      return;
     }
 
     playerState.playlist = tracks;
