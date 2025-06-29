@@ -48,6 +48,20 @@ export const GUJARATI_CALENDAR_TERMS = [
 ];
 
 /**
+ * Removes "(FAST)" and similar annotations from event summary
+ */
+export function removeFastAnnotation(summary: string): string {
+  if (!summary) return summary;
+
+  // Remove (FAST), (fast), and similar variations
+  return summary
+    .replace(/\s*\(FAST\)/gi, '')
+    .replace(/\s*\(fast\)/gi, '')
+    .replace(/\s*\(Fast\)/gi, '')
+    .trim();
+}
+
+/**
  * Removes ONLY Gujarati month names from event summary, keeping other calendar terms
  */
 export function removeGujaratiMonthNames(summary: string): string {
@@ -86,18 +100,24 @@ export function getMonthFromDate(date: number | Date): string {
 }
 
 /**
- * Processes event summary by removing Gujarati month names and adding month prefix
+ * Processes event summary by removing (FAST), Gujarati month names, and adding month prefix
  */
 export function processEventSummary(summary: string, startDate: number | Date): string {
-  const cleanedSummary = removeGujaratiMonthNames(summary);
+  // Step 1: Remove (FAST) annotation
+  let processedSummary = removeFastAnnotation(summary);
+  
+  // Step 2: Remove Gujarati month names
+  processedSummary = removeGujaratiMonthNames(processedSummary);
+  
+  // Step 3: Add month prefix
   const monthNumber = getMonthFromDate(startDate);
   
   // Only add month prefix if the summary doesn't already start with a month number
-  if (!/^\d{2}\s/.test(cleanedSummary)) {
-    return `${monthNumber} ${cleanedSummary}`;
+  if (!/^\d{2}\s/.test(processedSummary)) {
+    return `${monthNumber} ${processedSummary}`;
   }
   
-  return cleanedSummary;
+  return processedSummary;
 }
 
 /**
@@ -133,9 +153,9 @@ export function sortEventsByGujaratiTerms<T extends { summary: string; start: nu
 }
 
 /**
- * Test function to verify month name removal (for development/debugging)
+ * Test function to verify month name removal and FAST annotation removal
  */
-export function testMonthRemoval() {
+export function testProcessing() {
   const testCases = [
     "Posh Sud Bij",
     "Maha Sud Trij", 
@@ -148,13 +168,18 @@ export function testMonthRemoval() {
     "Bhadarvo Sud Nom",
     "Aso Sud Ekadashi (FAST)",
     "Kartak Sud Dasham",
-    "Magshar Sud Ekadashi (FAST)"
+    "Magshar Sud Ekadashi (FAST)",
+    "Posh Sud Ekadashi (fast)",
+    "Maha Vad Ekadashi (Fast)"
   ];
 
-  console.log("Testing Gujarati month name removal:");
+  console.log("Testing event summary processing:");
   testCases.forEach(testCase => {
-    const result = removeGujaratiMonthNames(testCase);
-    console.log(`"${testCase}" → "${result}"`);
+    const withoutFast = removeFastAnnotation(testCase);
+    const withoutMonth = removeGujaratiMonthNames(withoutFast);
+    const processed = processEventSummary(testCase, new Date('2024-01-15'));
+    console.log(`"${testCase}" → "${processed}"`);
+    console.log(`  Steps: "${testCase}" → "${withoutFast}" → "${withoutMonth}" → "${processed}"`);
   });
 }
 
@@ -164,7 +189,7 @@ export function testMonthRemoval() {
 export function testEventSorting() {
   const testEvents = [
     { summary: "Independence Day", start: 1692057600 }, // Regular event
-    { summary: "05 Sud Ekadashi (FAST)", start: 1691971200 }, // Gujarati event (earlier date)
+    { summary: "05 Sud Ekadashi", start: 1691971200 }, // Gujarati event (earlier date)
     { summary: "Meeting with Team", start: 1692144000 }, // Regular event
     { summary: "08 Vad Chaturdashi", start: 1692230400 }, // Gujarati event (later date)
     { summary: "Birthday Party", start: 1691884800 }, // Regular event (earliest date)
