@@ -25,6 +25,33 @@ const nextConfig = {
       },
     ];
   },
+
+  // Add headers for media streaming
+  async headers() {
+    return [
+      {
+        source: '/api/media/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, HEAD, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Range, Content-Type, Authorization',
+          },
+          {
+            key: 'Accept-Ranges',
+            value: 'bytes',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

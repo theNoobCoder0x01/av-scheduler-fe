@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
+import { useToast } from "@/hooks/use-toast";
 import { MediaService } from "@/services/media.service";
 import { PlayerService, PlayerState } from "@/services/player.service";
 import { WebSocketService } from "@/services/web-socket.service";
@@ -27,6 +28,7 @@ interface AudioPlayerProps {
 
 export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChange }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const { toast } = useToast();
   const [playerState, setPlayerState] = useState<PlayerState>({
     isPlaying: false,
     currentTime: 0,
@@ -40,6 +42,7 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Initialize player
   useEffect(() => {
@@ -71,18 +74,47 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
     if (!audioRef.current) return;
 
     setIsLoading(true);
+    setLoadError(null);
+    
     try {
+      console.log("🎵 Loading track:", trackPath);
+      
+      // Test if the stream URL is accessible
+      const isAccessible = await MediaService.testStreamUrl(trackPath);
+      if (!isAccessible) {
+        throw new Error("Media file is not accessible or supported");
+      }
+      
       const streamUrl = MediaService.getStreamUrl(trackPath);
+      console.log("🔗 Stream URL:", streamUrl);
+      
+      // Reset audio element
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      
+      // Set new source
       audioRef.current.src = streamUrl;
       audioRef.current.load();
       
       onTrackChange?.(trackPath, playerState.currentIndex);
+      
+      toast({
+        title: "Track loaded",
+        description: `Loading: ${trackPath.split('/').pop()}`,
+      });
     } catch (error) {
-      console.error("Error loading track:", error);
+      console.error("❌ Error loading track:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to load track";
+      setLoadError(errorMessage);
+      toast({
+        title: "Error loading track",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [playerState.currentIndex, onTrackChange]);
+  }, [playerState.currentIndex, onTrackChange, toast]);
 
   const handleRemoteCommand = useCallback((command: string, data?: any) => {
     switch (command) {
@@ -123,9 +155,14 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
       setPlayerState(newState);
       PlayerService.updateState(newState);
     } catch (error) {
-      console.error("Error playing audio:", error);
+      console.error("❌ Error playing audio:", error);
+      toast({
+        title: "Playback error",
+        description: "Failed to play audio. Check if the file is accessible.",
+        variant: "destructive",
+      });
     }
-  }, [playerState]);
+  }, [playerState, toast]);
 
   const pause = useCallback(() => {
     if (!audioRef.current) return;
@@ -226,7 +263,43 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
     
     const duration = audioRef.current.duration;
     setPlayerState(prev => ({ ...prev, duration }));
+    console.log("✅ Track loaded successfully, duration:", duration);
   }, []);
+
+  const handleCanPlay = useCallback(() => {
+    console.log("✅ Track can play");
+    setLoadError(null);
+  }, []);
+
+  const handleError = useCallback((e: any) => {
+    console.error("❌ Audio error:", e);
+    const error = audioRef.current?.error;
+    let errorMessage = "Unknown playback error";
+    
+    if (error) {
+      switch (error.code) {
+        case error.MEDIA_ERR_ABORTED:
+          errorMessage = "Playback aborted";
+          break;
+        case error.MEDIA_ERR_NETWORK:
+          errorMessage = "Network error while loading media";
+          break;
+        case error.MEDIA_ERR_DECODE:
+          errorMessage = "Media decode error";
+          break;
+        case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+          errorMessage = "Media format not supported";
+          break;
+      }
+    }
+    
+    setLoadError(errorMessage);
+    toast({
+      title: "Playback error",
+      description: errorMessage,
+      variant: "destructive",
+    });
+  }, [toast]);
 
   const handleEnded = useCallback(() => {
     if (playerState.repeat === 'one') {
@@ -259,6 +332,7 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
   }, [playerState, tracks, nextTrack, loadTrack]);
 
   const formatTime = (seconds: number) => {
+    if (!isFinite(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -275,8 +349,11 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
           ref={audioRef}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
+          onCanPlay={handleCanPlay}
+          onError={handleError}
           onEnded={handleEnded}
           preload="metadata"
+          crossOrigin="anonymous"
         />
         
         {/* Track Info */}
@@ -285,6 +362,9 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
           <p className="text-sm text-muted-foreground">
             Track {playerState.currentIndex + 1} of {tracks.length}
           </p>
+          {loadError && (
+            <p className="text-sm text-red-500 mt-1">⚠️ {loadError}</p>
+          )}
         </div>
 
         {/* Progress Bar */}
@@ -295,6 +375,7 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
             step={1}
             onValueChange={([value]) => seek(value)}
             className="w-full"
+            disabled={!playerState.duration || loadError !== null}
           />
           <div className="flex justify-between text-xs text-muted-foreground mt-1">
             <span>{formatTime(playerState.currentTime)}</span>
@@ -325,7 +406,7 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
           <Button
             size="icon"
             onClick={playerState.isPlaying ? pause : play}
-            disabled={isLoading}
+            disabled={isLoading || loadError !== null}
           >
             {isLoading ? (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -379,6 +460,16 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
             {Math.round(playerState.volume * 100)}%
           </span>
         </div>
+
+        {/* Debug Info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-4 p-2 bg-muted rounded text-xs">
+            <p>Current Track: {playerState.currentTrack}</p>
+            <p>Stream URL: {playerState.currentTrack ? MediaService.getStreamUrl(playerState.currentTrack) : 'None'}</p>
+            <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
+            <p>Error: {loadError || 'None'}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
