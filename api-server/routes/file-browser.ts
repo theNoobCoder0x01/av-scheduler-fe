@@ -142,7 +142,8 @@ fileBrowserRouter.get("/search", (req, res) => {
     const mediaOnly = req.query.mediaOnly === "true";
 
     if (!searchPath || !query) {
-      return res.status(400).json({ error: "Path and query are required" });
+      res.status(400).json({ error: "Path and query are required" });
+      return;
     }
 
     if (!fs.existsSync(searchPath)) {
