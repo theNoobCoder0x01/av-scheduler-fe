@@ -20,7 +20,8 @@ import {
   Home,
   Music,
   Play,
-  Search
+  Search,
+  Video
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -40,6 +41,23 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Enhanced media extensions
+  const mediaExtensions = [
+    // Video formats
+    'mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'wmv', 'flv', '3gp', 'm4v',
+    'mpg', 'mpeg', 'ogv', 'ts', 'mts', 'm2ts', 'vob', 'rm', 'rmvb', 'asf',
+    'divx', 'xvid', 'f4v', 'm2v', 'mxf', 'roq', 'nsv',
+    
+    // Audio formats
+    'mp3', 'wav', 'flac', 'aac', 'm4a', 'wma', 'opus', 'amr', 'ac3', 'dts',
+    'ape', 'au', 'ra', 'tta', 'tak', 'mpc', 'wv', 'spx', 'gsm', 'aiff',
+    'caf', 'w64', 'rf64', 'voc', 'ircam', 'w64', 'mat4', 'mat5', 'pvf',
+    'xi', 'htk', 'sds', 'avr', 'wavex', 'sd2', 'flac', 'caf', 'fap',
+    
+    // Streaming formats
+    'm3u8', 'ts', 'webm', 'ogv'
+  ];
 
   // Load initial data
   useEffect(() => {
@@ -98,19 +116,41 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
     }
   };
 
+  const isMediaFile = (item: FileItem) => {
+    const ext = item.extension.toLowerCase().replace('.', '');
+    return mediaExtensions.includes(ext);
+  };
+
+  const getFileIcon = (item: FileItem) => {
+    if (item.isDirectory) {
+      return <Folder className="h-4 w-4 text-blue-500" />;
+    }
+    
+    const ext = item.extension.toLowerCase().replace('.', '');
+    const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'wmv', 'flv', '3gp', 'm4v', 'mpg', 'mpeg', 'ogv'];
+    
+    if (videoExtensions.includes(ext)) {
+      return <Video className="h-4 w-4 text-purple-500" />;
+    } else if (isMediaFile(item)) {
+      return <Music className="h-4 w-4 text-green-500" />;
+    } else {
+      return <File className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
   const handleItemClick = (item: FileItem) => {
     if (item.isDirectory) {
       browseDirectory(item.path);
-    } else if (item.isMediaFile) {
+    } else if (isMediaFile(item)) {
       onFileSelect?.(item.path);
     }
   };
 
   const handleItemDoubleClick = (item: FileItem) => {
-    if (item.isMediaFile) {
+    if (isMediaFile(item)) {
       // Get all media files in current directory for playlist
       const mediaFiles = currentContents?.items
-        .filter(i => i.isMediaFile)
+        .filter(i => isMediaFile(i))
         .map(i => i.path) || [];
       
       const startIndex = mediaFiles.indexOf(item.path);
@@ -167,7 +207,7 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
   };
 
   const displayItems = searchResults.length > 0 ? searchResults : currentContents?.items || [];
-  const filteredItems = mediaOnly ? displayItems.filter(item => item.isDirectory || item.isMediaFile) : displayItems;
+  const filteredItems = mediaOnly ? displayItems.filter(item => item.isDirectory || isMediaFile(item)) : displayItems;
 
   return (
     <Card className="h-full flex flex-col">
@@ -241,6 +281,13 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
             </Button>
           )}
         </div>
+
+        {/* Supported Formats Info */}
+        {mediaOnly && (
+          <div className="text-xs text-muted-foreground">
+            <p>Supported formats: MP4, WebM, MOV, AVI, MKV, MP3, WAV, FLAC, AAC, and many more</p>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="flex-1 p-0">
@@ -275,29 +322,24 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
                   onDoubleClick={() => handleItemDoubleClick(item)}
                   onContextMenu={(e) => {
                     e.preventDefault();
-                    if (item.isMediaFile) {
+                    if (isMediaFile(item)) {
                       toggleFileSelection(item.path);
                     }
                   }}
                 >
-                  {item.isDirectory ? (
-                    <Folder className="h-4 w-4 mr-3 text-blue-500" />
-                  ) : item.isMediaFile ? (
-                    <Music className="h-4 w-4 mr-3 text-green-500" />
-                  ) : (
-                    <File className="h-4 w-4 mr-3 text-muted-foreground" />
-                  )}
+                  {getFileIcon(item)}
                   
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 ml-3">
                     <div className="truncate">{item.name}</div>
                     {!item.isDirectory && (
-                      <div className="text-xs text-muted-foreground">
-                        {formatFileSize(item.size)}
+                      <div className="text-xs text-muted-foreground flex items-center space-x-2">
+                        <span>{formatFileSize(item.size)}</span>
+                        <span className="uppercase">{item.extension.replace('.', '')}</span>
                       </div>
                     )}
                   </div>
                   
-                  {item.isMediaFile && (
+                  {isMediaFile(item) && (
                     <input
                       type="checkbox"
                       checked={selectedFiles.has(item.path)}

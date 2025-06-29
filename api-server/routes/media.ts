@@ -5,6 +5,23 @@ import { getSettings } from "../lib/settings";
 
 const mediaRouter = express.Router();
 
+// Enhanced media extensions support
+const SUPPORTED_MEDIA_EXTENSIONS = {
+  video: [
+    '.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.wmv', '.flv', '.3gp', '.m4v',
+    '.mpg', '.mpeg', '.ogv', '.ts', '.mts', '.m2ts', '.vob', '.rm', '.rmvb', '.asf',
+    '.divx', '.xvid', '.f4v', '.m2v', '.mxf', '.roq', '.nsv'
+  ],
+  audio: [
+    '.mp3', '.wav', '.flac', '.aac', '.m4a', '.wma', '.opus', '.amr', '.ac3', '.dts',
+    '.ape', '.au', '.ra', '.tta', '.tak', '.mpc', '.wv', '.spx', '.gsm', '.aiff',
+    '.caf', '.w64', '.rf64', '.voc', '.ircam', '.mat4', '.mat5', '.pvf',
+    '.xi', '.htk', '.sds', '.avr', '.wavex', '.sd2', '.fap'
+  ]
+};
+
+const ALL_MEDIA_EXTENSIONS = [...SUPPORTED_MEDIA_EXTENSIONS.video, ...SUPPORTED_MEDIA_EXTENSIONS.audio];
+
 // Stream media file - Fixed route pattern
 mediaRouter.get("/stream/:encodedPath(*)", (req, res) => {
   try {
@@ -42,11 +59,10 @@ mediaRouter.get("/stream/:encodedPath(*)", (req, res) => {
 
     console.log("📊 File size:", fileSize, "Range:", range);
 
-    // Check if file is a media file
+    // Check if file is a supported media file
     const ext = path.extname(filePath).toLowerCase();
-    const mediaExtensions = ['.mp3', '.mp4', '.wav', '.flac', '.aac', '.ogg', '.webm', '.m4a', '.mov', '.avi'];
     
-    if (!mediaExtensions.includes(ext)) {
+    if (!ALL_MEDIA_EXTENSIONS.includes(ext)) {
       console.error("❌ Not a supported media file:", ext);
       res.status(400).json({ error: "Not a supported media file" });
       return;
@@ -54,16 +70,57 @@ mediaRouter.get("/stream/:encodedPath(*)", (req, res) => {
 
     // Set appropriate content type
     const contentTypes: { [key: string]: string } = {
-      '.mp3': 'audio/mpeg',
+      // Video formats
       '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.ogg': 'video/ogg',
+      '.ogv': 'video/ogg',
+      '.mov': 'video/quicktime',
+      '.avi': 'video/x-msvideo',
+      '.mkv': 'video/x-matroska',
+      '.wmv': 'video/x-ms-wmv',
+      '.flv': 'video/x-flv',
+      '.3gp': 'video/3gpp',
+      '.m4v': 'video/x-m4v',
+      '.mpg': 'video/mpeg',
+      '.mpeg': 'video/mpeg',
+      '.ts': 'video/mp2t',
+      '.mts': 'video/mp2t',
+      '.m2ts': 'video/mp2t',
+      '.vob': 'video/dvd',
+      '.rm': 'application/vnd.rn-realmedia',
+      '.rmvb': 'application/vnd.rn-realmedia-vbr',
+      '.asf': 'video/x-ms-asf',
+      '.divx': 'video/divx',
+      '.xvid': 'video/x-xvid',
+      '.f4v': 'video/x-f4v',
+      '.m2v': 'video/mpeg',
+      
+      // Audio formats
+      '.mp3': 'audio/mpeg',
       '.wav': 'audio/wav',
       '.flac': 'audio/flac',
       '.aac': 'audio/aac',
-      '.ogg': 'audio/ogg',
-      '.webm': 'video/webm',
       '.m4a': 'audio/mp4',
-      '.mov': 'video/quicktime',
-      '.avi': 'video/x-msvideo'
+      '.wma': 'audio/x-ms-wma',
+      '.opus': 'audio/opus',
+      '.amr': 'audio/amr',
+      '.ac3': 'audio/ac3',
+      '.dts': 'audio/dts',
+      '.ape': 'audio/x-ape',
+      '.au': 'audio/basic',
+      '.ra': 'audio/x-realaudio',
+      '.tta': 'audio/x-tta',
+      '.tak': 'audio/x-tak',
+      '.mpc': 'audio/x-musepack',
+      '.wv': 'audio/x-wavpack',
+      '.spx': 'audio/speex',
+      '.gsm': 'audio/gsm',
+      '.aiff': 'audio/aiff',
+      '.caf': 'audio/x-caf',
+      '.w64': 'audio/x-w64',
+      '.rf64': 'audio/x-rf64',
+      '.voc': 'audio/x-voc'
     };
 
     const contentType = contentTypes[ext] || 'application/octet-stream';
@@ -184,6 +241,10 @@ mediaRouter.get("/metadata/:encodedPath(*)", async (req, res) => {
     const stat = fs.statSync(filePath);
     const ext = path.extname(filePath).toLowerCase();
     
+    // Determine if it's audio or video
+    const isVideo = SUPPORTED_MEDIA_EXTENSIONS.video.includes(ext);
+    const isAudio = SUPPORTED_MEDIA_EXTENSIONS.audio.includes(ext);
+    
     const metadata = {
       name: path.basename(filePath),
       path: filePath,
@@ -191,8 +252,8 @@ mediaRouter.get("/metadata/:encodedPath(*)", async (req, res) => {
       extension: ext,
       lastModified: stat.mtime,
       duration: null, // Could be enhanced with media metadata extraction
-      isAudio: ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a'].includes(ext),
-      isVideo: ['.mp4', '.webm', '.mov', '.avi'].includes(ext)
+      isAudio,
+      isVideo
     };
 
     res.json({
