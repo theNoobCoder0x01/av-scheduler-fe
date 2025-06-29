@@ -82,6 +82,9 @@ app.use((req, res) => {
   });
 });
 
+let webSocketServer: WebSocketServer | null = null;
+let isShuttingDown = false;
+
 export const startStandaloneServer = async () => {
   try {
     // Initialize database
@@ -105,24 +108,62 @@ export const startStandaloneServer = async () => {
     });
 
     // Setup WebSocket
-    const webSocketServer: WebSocketServer = setupWebSocket(apiServer);
+    webSocketServer = setupWebSocket(apiServer);
     console.log("📡 WebSocket server is running");
 
-    // Graceful shutdown
-    process.on('SIGTERM', () => {
-      console.log('🛑 SIGTERM received, shutting down gracefully');
-      apiServer.close(() => {
-        console.log('✅ Server closed');
-        process.exit(0);
+    // Enhanced graceful shutdown handling
+    const gracefulShutdown = (signal: string) => {
+      if (isShuttingDown) {
+        console.log("🔄 Shutdown already in progress...");
+        return;
+      }
+      
+      isShuttingDown = true;
+      console.log(`🛑 ${signal} received, shutting down gracefully...`);
+      
+      // Close WebSocket server first
+      if (webSocketServer) {
+        console.log("📡 Closing WebSocket server...");
+        webSocketServer.close(() => {
+          console.log("✅ WebSocket server closed");
+        });
+      }
+      
+      // Close HTTP server
+      console.log("🌐 Closing HTTP server...");
+      apiServer.close((err) => {
+        if (err) {
+          console.error("❌ Error closing server:", err);
+          process.exit(1);
+        } else {
+          console.log("✅ HTTP server closed");
+          console.log("👋 Server shutdown complete");
+          process.exit(0);
+        }
       });
-    });
+      
+      // Force exit after 10 seconds if graceful shutdown fails
+      setTimeout(() => {
+        console.log("⚠️  Forcing shutdown after timeout");
+        process.exit(1);
+      }, 10000);
+    };
 
-    process.on('SIGINT', () => {
-      console.log('🛑 SIGINT received, shutting down gracefully');
-      apiServer.close(() => {
-        console.log('✅ Server closed');
-        process.exit(0);
-      });
+    // Handle different termination signals
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // nodemon restart
+    
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      console.error("❌ Uncaught Exception:", error);
+      gracefulShutdown('UNCAUGHT_EXCEPTION');
+    });
+    
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
+      gracefulShutdown('UNHANDLED_REJECTION');
     });
 
     return {
@@ -146,6 +187,7 @@ if (require.main === module) {
     console.log("✅ API Server is ready!");
     console.log("💡 You can now run 'npm run dev' in another terminal for the frontend");
     console.log("🔗 Full app will be available at: http://localhost:3000");
+    console.log("🛑 Press Ctrl+C to stop the server");
     console.log("");
   }).catch((error) => {
     console.error("❌ Failed to start server:", error);
