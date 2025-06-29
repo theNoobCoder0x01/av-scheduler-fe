@@ -10,7 +10,21 @@ const nextConfig = {
     }
     return config;
   },
-  output: "export",
+  // Remove output: "export" for local development
+  // This will be added back for electron builds
+  ...(process.env.NODE_ENV === 'production' && process.env.BUILD_TARGET === 'electron' 
+    ? { output: "export" } 
+    : {}),
+  
+  // Add rewrites for API calls in development
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:8082/api/:path*',
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
