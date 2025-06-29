@@ -15,7 +15,7 @@ export const GUJARATI_MONTHS = {
   'falgun': ['falgun', 'phalgun', 'fagun']
 };
 
-// Common Gujarati calendar terms
+// Common Gujarati calendar terms (kept for reference but not removed)
 export const GUJARATI_CALENDAR_TERMS = [
   'sud', 'vad', 'shukla', 'krishna', 'paksha',
   'purnima', 'amavasya', 'ekadashi', 'chaturdashi',
@@ -26,22 +26,16 @@ export const GUJARATI_CALENDAR_TERMS = [
 ];
 
 /**
- * Removes Gujarati month names and calendar terms from event summary
+ * Removes ONLY Gujarati month names from event summary, keeping other calendar terms
  */
 export function removeGujaratiMonthNames(summary: string): string {
   if (!summary) return summary;
 
-  let cleanedSummary = summary.toLowerCase();
+  let cleanedSummary = summary;
 
-  // Remove Gujarati month names
+  // Remove ONLY Gujarati month names (not other calendar terms)
   Object.values(GUJARATI_MONTHS).flat().forEach(monthName => {
     const regex = new RegExp(`\\b${monthName}\\b`, 'gi');
-    cleanedSummary = cleanedSummary.replace(regex, '');
-  });
-
-  // Remove common Gujarati calendar terms
-  GUJARATI_CALENDAR_TERMS.forEach(term => {
-    const regex = new RegExp(`\\b${term}\\b`, 'gi');
     cleanedSummary = cleanedSummary.replace(regex, '');
   });
 
@@ -50,11 +44,12 @@ export function removeGujaratiMonthNames(summary: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Capitalize first letter of each word
-  return cleanedSummary
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+  // Preserve original capitalization but ensure first letter is capitalized
+  if (cleanedSummary.length > 0) {
+    cleanedSummary = cleanedSummary.charAt(0).toUpperCase() + cleanedSummary.slice(1);
+  }
+
+  return cleanedSummary;
 }
 
 /**
@@ -68,7 +63,7 @@ export function getMonthFromDate(date: number | Date): string {
 }
 
 /**
- * Processes event summary by removing Gujarati terms and adding month prefix
+ * Processes event summary by removing Gujarati month names and adding month prefix
  */
 export function processEventSummary(summary: string, startDate: number | Date): string {
   const cleanedSummary = removeGujaratiMonthNames(summary);
