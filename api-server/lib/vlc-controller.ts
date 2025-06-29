@@ -379,3 +379,6 @@ export async function controlVlc(
     };
   }
 }
+
+// Export the generatePlaylistFilenames function for use in other modules
+module.exports = { generatePlaylistFilenames };

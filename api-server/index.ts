@@ -7,6 +7,7 @@ import { setupWebSocket } from "./lib/web-socket";
 import calendarEventsRouter from "./routes/calender-events";
 import schedulerRoutes from "./routes/scheduler";
 import settingsRouter from "./routes/settings";
+import playlistsRouter from "./routes/playlists";
 
 const app = express();
 const apiServer: Server = createServer(app);
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use("/api/scheduler", schedulerRoutes);
 app.use("/api/calendar-events", calendarEventsRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/playlists", playlistsRouter);
 
 // Serve static files from the Next.js export
 const outDir = path.join(__dirname, "..", "..", "out");

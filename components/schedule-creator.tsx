@@ -20,15 +20,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { generatePlaylistFilenames } from "@/lib/playlist-utils";
 import { ICalendarEvent } from "@/models/calendar-event.model";
 import { ActionType, ScheduledAction } from "@/models/scheduled-action.model";
+import { PlaylistService, PlaylistCheckResult } from "@/services/playlist.service";
 import { ScheduledActionService } from "@/services/scheduler.service";
 import { WebSocketService } from "@/services/web-socket.service";
 import { format } from "date-fns";
 import {
   Calendar,
+  CheckCircle,
   Clock,
+  FileMusic,
   Pause,
   Play,
   Plus,
@@ -36,6 +46,7 @@ import {
   Repeat,
   Square,
   Trash2,
+  XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -43,15 +54,22 @@ interface ScheduleCreatorProps {
   events: ICalendarEvent[];
 }
 
+interface ScheduledActionWithPlaylist extends ScheduledAction {
+  playlistStatus?: {
+    found: boolean;
+    availableFiles: string[];
+    searchedFor: string;
+  };
+}
+
 export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
-  const [scheduledActions, setScheduledActions] = useState<ScheduledAction[]>(
-    []
-  );
+  const [scheduledActions, setScheduledActions] = useState<ScheduledActionWithPlaylist[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [actionType, setActionType] = useState<ActionType>("play");
   const [actionTime, setActionTime] = useState<string>("");
   const [isDaily, setIsDaily] = useState(true);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
   const { toast } = useToast();
 
   // Fetch schedules from the server
@@ -59,6 +77,9 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     try {
       const response = await ScheduledActionService.getAllScheduledActions();
       setScheduledActions(response);
+      
+      // Check playlist availability for each action
+      await checkPlaylistAvailability(response);
     } catch (error) {
       console.error("Error fetching schedules:", error);
       toast({
@@ -68,6 +89,48 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
       });
     }
   }, [toast]);
+
+  // Check playlist availability for scheduled actions
+  const checkPlaylistAvailability = async (actions: ScheduledAction[]) => {
+    setIsLoadingPlaylists(true);
+    try {
+      const actionsWithPlaylistStatus: ScheduledActionWithPlaylist[] = [];
+      
+      for (const action of actions) {
+        let playlistStatus = undefined;
+        
+        // Only check for play actions that have an event name
+        if (action.actionType === "play" && action.eventName) {
+          try {
+            const result: PlaylistCheckResult = await PlaylistService.checkPlaylistExists(action.eventName);
+            playlistStatus = {
+              found: result.found,
+              availableFiles: result.data.map(p => p.name),
+              searchedFor: result.searchedFor,
+            };
+          } catch (error) {
+            console.error(`Error checking playlist for ${action.eventName}:`, error);
+            playlistStatus = {
+              found: false,
+              availableFiles: [],
+              searchedFor: action.eventName,
+            };
+          }
+        }
+        
+        actionsWithPlaylistStatus.push({
+          ...action,
+          playlistStatus,
+        });
+      }
+      
+      setScheduledActions(actionsWithPlaylistStatus);
+    } catch (error) {
+      console.error("Error checking playlist availability:", error);
+    } finally {
+      setIsLoadingPlaylists(false);
+    }
+  };
 
   const handleReloadAction = useCallback(async () => {
     fetchSchedules();
@@ -201,6 +264,93 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     } finally {
       setIsExecuting(false);
     }
+  };
+
+  const renderPlaylistStatus = (action: ScheduledActionWithPlaylist) => {
+    if (action.actionType !== "play" || !action.eventName) {
+      return <span className="text-muted-foreground">-</span>;
+    }
+
+    if (isLoadingPlaylists) {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <span className="text-sm text-muted-foreground">Checking...</span>
+        </div>
+      );
+    }
+
+    if (!action.playlistStatus) {
+      return <span className="text-muted-foreground">Unknown</span>;
+    }
+
+    const { found, availableFiles, searchedFor } = action.playlistStatus;
+    const possibleFilenames = generatePlaylistFilenames(searchedFor);
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-2">
+              {found ? (
+                <>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-sm text-green-600 dark:text-green-400">
+                    Available
+                  </span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 text-red-500" />
+                  <span className="text-sm text-red-600 dark:text-red-400">
+                    Missing
+                  </span>
+                </>
+              )}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-sm">
+            <div className="space-y-2">
+              <p className="font-semibold">
+                Playlist for: {searchedFor}
+              </p>
+              {found ? (
+                <div>
+                  <p className="text-sm text-green-600 dark:text-green-400">
+                    ✓ Found playlist files:
+                  </p>
+                  <ul className="text-xs space-y-1 mt-1">
+                    {availableFiles.map((file, index) => (
+                      <li key={index} className="flex items-center gap-1">
+                        <FileMusic className="h-3 w-3" />
+                        {file}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    ✗ No playlist files found
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Searched for:
+                  </p>
+                  <ul className="text-xs space-y-1 mt-1">
+                    {possibleFilenames.map((filename, index) => (
+                      <li key={index} className="flex items-center gap-1">
+                        <FileMusic className="h-3 w-3" />
+                        {filename}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   };
 
   useEffect(() => {
@@ -351,91 +501,94 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                   <TableHead>Time</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Event</TableHead>
+                  <TableHead>Playlist Status</TableHead>
                   <TableHead>Last Run</TableHead>
                   <TableHead>Next Run</TableHead>
                   <TableHead className="text-right">Options</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {scheduledActions
-                  .map((action, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <span className="flex items-center">
-                          {action.isDaily ? (
-                            <>
-                              <Repeat className="mr-2 h-4 w-4 text-primary" />
-                              Daily
-                            </>
-                          ) : (
-                            <>
-                              <Calendar className="mr-2 h-4 w-4 text-primary" />
-                              One-time
-                            </>
-                          )}
+                {scheduledActions.map((action, index) => (
+                  <TableRow key={index}>
+                    <TableCell>
+                      <span className="flex items-center">
+                        {action.isDaily ? (
+                          <>
+                            <Repeat className="mr-2 h-4 w-4 text-primary" />
+                            Daily
+                          </>
+                        ) : (
+                          <>
+                            <Calendar className="mr-2 h-4 w-4 text-primary" />
+                            One-time
+                          </>
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell>{action.time}</TableCell>
+                    <TableCell>
+                      <span className="flex items-center">
+                        {action.actionType === "play" && (
+                          <Play className="mr-2 h-4 w-4 text-green-500" />
+                        )}
+                        {action.actionType === "pause" && (
+                          <Pause className="mr-2 h-4 w-4 text-amber-500" />
+                        )}
+                        {action.actionType === "stop" && (
+                          <Square className="mr-2 h-4 w-4 text-red-500" />
+                        )}
+                        {action.actionType.charAt(0).toUpperCase() +
+                          action.actionType.slice(1)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {action.eventName ? (
+                        <span className="font-medium">
+                          {action.eventName}
                         </span>
-                      </TableCell>
-                      <TableCell>{action.time}</TableCell>
-                      <TableCell>
-                        <span className="flex items-center">
-                          {action.actionType === "play" && (
-                            <Play className="mr-2 h-4 w-4 text-green-500" />
-                          )}
-                          {action.actionType === "pause" && (
-                            <Pause className="mr-2 h-4 w-4 text-amber-500" />
-                          )}
-                          {action.actionType === "stop" && (
-                            <Square className="mr-2 h-4 w-4 text-red-500" />
-                          )}
-                          {action.actionType.charAt(0).toUpperCase() +
-                            action.actionType.slice(1)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {action.eventName ? (
-                          <span className="font-medium">
-                            {action.eventName}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {action.lastRun ? (
-                          formatTimestamp(action.lastRun)
-                        ) : (
-                          <span className="text-muted-foreground">Never</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {action.nextRun ? (
-                          formatTimestamp(action.nextRun)
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => executeAction(action)}
-                            disabled={isExecuting}
-                          >
-                            {isExecuting ? "Executing..." : "Execute"}
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            onClick={() => handleRemoveAction(index)}
-                            disabled={isExecuting}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {renderPlaylistStatus(action)}
+                    </TableCell>
+                    <TableCell>
+                      {action.lastRun ? (
+                        formatTimestamp(action.lastRun)
+                      ) : (
+                        <span className="text-muted-foreground">Never</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {action.nextRun ? (
+                        formatTimestamp(action.nextRun)
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => executeAction(action)}
+                          disabled={isExecuting}
+                        >
+                          {isExecuting ? "Executing..." : "Execute"}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => handleRemoveAction(index)}
+                          disabled={isExecuting}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}
