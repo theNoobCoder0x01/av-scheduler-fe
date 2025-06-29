@@ -25,7 +25,8 @@ mediaRouter.get("/stream/:encodedPath", (req, res) => {
     const mediaExtensions = ['.mp3', '.mp4', '.wav', '.flac', '.aac', '.ogg', '.webm', '.m4a'];
     
     if (!mediaExtensions.includes(ext)) {
-      return res.status(400).json({ error: "Not a supported media file" });
+      res.status(400).json({ error: "Not a supported media file" });
+      return;
     }
 
     // Set appropriate content type
