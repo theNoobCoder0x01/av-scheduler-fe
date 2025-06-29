@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { setEvents } from "@/lib/store/slices/eventsSlice";
+import { sortEventsByGujaratiTerms } from "@/lib/gujarati-calendar";
 import { ICalendarEvent } from "@/models/calendar-event.model";
 import { CalendarEventService } from "@/services/calendar-event.service";
 import { Search } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import EventCard from "./event-card";
 
 interface EventListProps {
@@ -26,12 +27,19 @@ export default function EventList({ events }: EventListProps) {
     setLocalEvents(events);
   }, [events]);
 
-  const filteredEvents = localEvents.filter(
-    (event) =>
-      event.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.location?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Sort and filter events with memoization for performance
+  const sortedAndFilteredEvents = useMemo(() => {
+    // First filter by search term
+    const filtered = localEvents.filter(
+      (event) =>
+        event.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.location?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Then sort: Gujarati calendar events first, then by start date
+    return sortEventsByGujaratiTerms(filtered);
+  }, [localEvents, searchTerm]);
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -160,14 +168,22 @@ export default function EventList({ events }: EventListProps) {
         </div>
       </div>
 
-      {filteredEvents.length === 0 && (
+      {/* Display sorting information */}
+      {sortedAndFilteredEvents.length > 0 && (
+        <div className="text-sm text-muted-foreground">
+          Showing {sortedAndFilteredEvents.length} events 
+          (Gujarati calendar events shown first, then sorted by date)
+        </div>
+      )}
+
+      {sortedAndFilteredEvents.length === 0 && (
         <div className="text-center p-6">
           <p className="text-muted-foreground">No events found.</p>
         </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredEvents.map((event) => (
+        {sortedAndFilteredEvents.map((event) => (
           <EventCard
             key={event.uid}
             event={event}

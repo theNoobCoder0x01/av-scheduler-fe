@@ -37,7 +37,7 @@ export const GUJARATI_MONTHS = {
   'falgun': ['falgun', 'phalgun', 'fagun', 'fagan']
 };
 
-// Common Gujarati calendar terms (kept for reference but not removed)
+// Common Gujarati calendar terms (used for sorting priority)
 export const GUJARATI_CALENDAR_TERMS = [
   'sud', 'vad', 'shukla', 'krishna', 'paksha',
   'purnima', 'punam', 'amavasya', 'amas', 'ekadashi', 'chaturdashi',
@@ -101,6 +101,38 @@ export function processEventSummary(summary: string, startDate: number | Date): 
 }
 
 /**
+ * Checks if an event summary contains any Gujarati calendar terms
+ */
+export function hasGujaratiCalendarTerms(summary: string): boolean {
+  if (!summary) return false;
+  
+  const lowerSummary = summary.toLowerCase();
+  return GUJARATI_CALENDAR_TERMS.some(term => 
+    lowerSummary.includes(term.toLowerCase())
+  );
+}
+
+/**
+ * Sorts events with Gujarati calendar terms first, then by start date
+ */
+export function sortEventsByGujaratiTerms<T extends { summary: string; start: number | Date }>(events: T[]): T[] {
+  return [...events].sort((a, b) => {
+    const aHasTerms = hasGujaratiCalendarTerms(a.summary);
+    const bHasTerms = hasGujaratiCalendarTerms(b.summary);
+    
+    // First sort by presence of Gujarati calendar terms
+    if (aHasTerms && !bHasTerms) return -1;
+    if (!aHasTerms && bHasTerms) return 1;
+    
+    // Then sort by start date
+    const aStart = typeof a.start === 'number' ? a.start : Math.floor(a.start.getTime() / 1000);
+    const bStart = typeof b.start === 'number' ? b.start : Math.floor(b.start.getTime() / 1000);
+    
+    return aStart - bStart;
+  });
+}
+
+/**
  * Test function to verify month name removal (for development/debugging)
  */
 export function testMonthRemoval() {
@@ -124,4 +156,24 @@ export function testMonthRemoval() {
     const result = removeGujaratiMonthNames(testCase);
     console.log(`"${testCase}" → "${result}"`);
   });
+}
+
+/**
+ * Test function to verify sorting functionality
+ */
+export function testEventSorting() {
+  const testEvents = [
+    { summary: "Independence Day", start: 1692057600 }, // Regular event
+    { summary: "05 Sud Ekadashi (FAST)", start: 1691971200 }, // Gujarati event (earlier date)
+    { summary: "Meeting with Team", start: 1692144000 }, // Regular event
+    { summary: "08 Vad Chaturdashi", start: 1692230400 }, // Gujarati event (later date)
+    { summary: "Birthday Party", start: 1691884800 }, // Regular event (earliest date)
+  ];
+
+  console.log("Testing event sorting:");
+  console.log("Original order:", testEvents.map(e => e.summary));
+  
+  const sorted = sortEventsByGujaratiTerms(testEvents);
+  console.log("Sorted order:", sorted.map(e => e.summary));
+  console.log("Expected: Gujarati events first (by date), then regular events (by date)");
 }
