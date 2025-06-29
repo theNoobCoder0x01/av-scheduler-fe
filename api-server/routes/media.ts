@@ -5,16 +5,31 @@ import { getSettings } from "../lib/settings";
 
 const mediaRouter = express.Router();
 
-// Stream media file
-mediaRouter.get("/stream/*", (req, res) => {
+// Stream media file - Fixed route pattern
+mediaRouter.get("/stream/:encodedPath(*)", (req, res) => {
   try {
-    // Get the full path from the wildcard parameter
-    const encodedPath = req.params[0];
-    const filePath = decodeURIComponent(encodedPath);
+    // Get the full path from the parameter
+    const encodedPath = req.params.encodedPath;
+    
+    if (!encodedPath) {
+      console.error("❌ No file path provided");
+      res.status(400).json({ error: "File path is required" });
+      return;
+    }
+
+    // Decode the path properly
+    let filePath: string;
+    try {
+      filePath = decodeURIComponent(encodedPath);
+    } catch (decodeError) {
+      console.error("❌ Invalid encoded path:", encodedPath);
+      res.status(400).json({ error: "Invalid file path encoding" });
+      return;
+    }
     
     console.log("🎵 Streaming request for:", filePath);
     
-    // Security check - ensure file exists and is within allowed directories
+    // Security check - ensure file exists
     if (!fs.existsSync(filePath)) {
       console.error("❌ File not found:", filePath);
       res.status(404).json({ error: "File not found" });
@@ -53,6 +68,14 @@ mediaRouter.get("/stream/*", (req, res) => {
 
     const contentType = contentTypes[ext] || 'application/octet-stream';
 
+    // Set CORS headers for media streaming
+    res.set({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': 'Range, Content-Type, Authorization',
+      'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
+    });
+
     if (range) {
       // Handle range requests for streaming
       console.log("🎯 Processing range request:", range);
@@ -60,34 +83,38 @@ mediaRouter.get("/stream/*", (req, res) => {
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      const chunksize = (end - start) + 1;
       
-      if (start >= fileSize || end >= fileSize) {
+      // Validate range
+      if (start >= fileSize || end >= fileSize || start > end) {
+        console.error("❌ Invalid range:", start, "-", end, "for file size:", fileSize);
         res.status(416).set({
           'Content-Range': `bytes */${fileSize}`
         });
         return;
       }
       
+      const chunksize = (end - start) + 1;
       const file = fs.createReadStream(filePath, { start, end });
+      
       const head = {
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': chunksize.toString(),
         'Content-Type': contentType,
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
+        'Cache-Control': 'public, max-age=3600',
       };
       
       console.log("📤 Sending partial content:", start, "-", end, "/", fileSize);
       res.writeHead(206, head);
-      file.pipe(res);
       
       file.on('error', (error) => {
         console.error("❌ Stream error:", error);
-        res.end();
+        if (!res.headersSent) {
+          res.status(500).end();
+        }
       });
+      
+      file.pipe(res);
     } else {
       // Send entire file
       console.log("📤 Sending entire file");
@@ -95,31 +122,57 @@ mediaRouter.get("/stream/*", (req, res) => {
         'Content-Length': fileSize.toString(),
         'Content-Type': contentType,
         'Accept-Ranges': 'bytes',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
+        'Cache-Control': 'public, max-age=3600',
       };
       
       res.writeHead(200, head);
       const stream = fs.createReadStream(filePath);
-      stream.pipe(res);
       
       stream.on('error', (error) => {
         console.error("❌ Stream error:", error);
-        res.end();
+        if (!res.headersSent) {
+          res.status(500).end();
+        }
       });
+      
+      stream.pipe(res);
     }
   } catch (error) {
     console.error("❌ Error streaming media:", error);
-    res.status(500).json({ error: "Failed to stream media file" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to stream media file" });
+    }
   }
 });
 
+// Handle OPTIONS requests for CORS
+mediaRouter.options("/stream/:encodedPath(*)", (req, res) => {
+  res.set({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+    'Access-Control-Allow-Headers': 'Range, Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+  });
+  res.status(200).end();
+});
+
 // Get media file metadata
-mediaRouter.get("/metadata/*", async (req, res) => {
+mediaRouter.get("/metadata/:encodedPath(*)", async (req, res) => {
   try {
-    const encodedPath = req.params[0];
-    const filePath = decodeURIComponent(encodedPath);
+    const encodedPath = req.params.encodedPath;
+    
+    if (!encodedPath) {
+      res.status(400).json({ error: "File path is required" });
+      return;
+    }
+
+    let filePath: string;
+    try {
+      filePath = decodeURIComponent(encodedPath);
+    } catch (decodeError) {
+      res.status(400).json({ error: "Invalid file path encoding" });
+      return;
+    }
     
     console.log("📋 Metadata request for:", filePath);
     

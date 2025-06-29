@@ -15,7 +15,7 @@ export interface MediaMetadata {
 
 export class MediaService {
   static getStreamUrl(filePath: string): string {
-    // Double encode the path to handle special characters properly
+    // Encode the path properly to handle special characters
     const encodedPath = encodeURIComponent(filePath);
     return `${API_BASE_URL}/media/stream/${encodedPath}`;
   }
@@ -33,15 +33,29 @@ export class MediaService {
   static async testStreamUrl(filePath: string): Promise<boolean> {
     try {
       const streamUrl = this.getStreamUrl(filePath);
+      console.log("🧪 Testing stream URL:", streamUrl);
+      
       const response = await fetch(streamUrl, { 
         method: 'HEAD',
         headers: {
-          'Range': 'bytes=0-1'
+          'Range': 'bytes=0-1024'
         }
       });
-      return response.ok;
+      
+      console.log("🧪 Stream test result:", response.status, response.statusText);
+      return response.ok || response.status === 206; // Accept both 200 and 206
     } catch (error) {
-      console.error("Stream test failed:", error);
+      console.error("❌ Stream test failed:", error);
+      return false;
+    }
+  }
+
+  static async validateMediaFile(filePath: string): Promise<boolean> {
+    try {
+      const metadata = await this.getMetadata(filePath);
+      return metadata.isAudio || metadata.isVideo;
+    } catch (error) {
+      console.error("❌ Media validation failed:", error);
       return false;
     }
   }

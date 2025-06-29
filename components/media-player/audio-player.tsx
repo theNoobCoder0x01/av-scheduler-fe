@@ -43,6 +43,7 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Initialize player
   useEffect(() => {
@@ -75,14 +76,21 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
 
     setIsLoading(true);
     setLoadError(null);
+    setRetryCount(0);
     
     try {
       console.log("🎵 Loading track:", trackPath);
       
+      // Validate media file first
+      const isValid = await MediaService.validateMediaFile(trackPath);
+      if (!isValid) {
+        throw new Error("File is not a valid media file");
+      }
+      
       // Test if the stream URL is accessible
       const isAccessible = await MediaService.testStreamUrl(trackPath);
       if (!isAccessible) {
-        throw new Error("Media file is not accessible or supported");
+        throw new Error("Media file is not accessible for streaming");
       }
       
       const streamUrl = MediaService.getStreamUrl(trackPath);
@@ -92,7 +100,7 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       
-      // Set new source
+      // Set new source with error handling
       audioRef.current.src = streamUrl;
       audioRef.current.load();
       
@@ -115,6 +123,14 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
       setIsLoading(false);
     }
   }, [playerState.currentIndex, onTrackChange, toast]);
+
+  const retryLoadTrack = useCallback(() => {
+    if (playerState.currentTrack && retryCount < 3) {
+      setRetryCount(prev => prev + 1);
+      console.log(`🔄 Retrying track load (attempt ${retryCount + 1})`);
+      loadTrack(playerState.currentTrack);
+    }
+  }, [playerState.currentTrack, retryCount, loadTrack]);
 
   const handleRemoteCommand = useCallback((command: string, data?: any) => {
     switch (command) {
@@ -154,11 +170,13 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
       const newState = { ...playerState, isPlaying: true };
       setPlayerState(newState);
       PlayerService.updateState(newState);
+      setLoadError(null); // Clear any previous errors on successful play
     } catch (error) {
       console.error("❌ Error playing audio:", error);
+      setLoadError("Failed to play audio");
       toast({
         title: "Playback error",
-        description: "Failed to play audio. Check if the file is accessible.",
+        description: "Failed to play audio. The file may be corrupted or unsupported.",
         variant: "destructive",
       });
     }
@@ -184,11 +202,12 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
   }, [playerState]);
 
   const seek = useCallback((time: number) => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !isFinite(time)) return;
     
-    audioRef.current.currentTime = time;
-    setPlayerState(prev => ({ ...prev, currentTime: time }));
-  }, []);
+    const clampedTime = Math.max(0, Math.min(time, playerState.duration));
+    audioRef.current.currentTime = clampedTime;
+    setPlayerState(prev => ({ ...prev, currentTime: clampedTime }));
+  }, [playerState.duration]);
 
   const setVolume = useCallback((volume: number) => {
     if (!audioRef.current) return;
@@ -255,20 +274,25 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
     if (!audioRef.current) return;
     
     const currentTime = audioRef.current.currentTime;
-    setPlayerState(prev => ({ ...prev, currentTime }));
+    if (isFinite(currentTime)) {
+      setPlayerState(prev => ({ ...prev, currentTime }));
+    }
   }, []);
 
   const handleLoadedMetadata = useCallback(() => {
     if (!audioRef.current) return;
     
     const duration = audioRef.current.duration;
-    setPlayerState(prev => ({ ...prev, duration }));
-    console.log("✅ Track loaded successfully, duration:", duration);
+    if (isFinite(duration)) {
+      setPlayerState(prev => ({ ...prev, duration }));
+      console.log("✅ Track loaded successfully, duration:", duration);
+    }
   }, []);
 
   const handleCanPlay = useCallback(() => {
     console.log("✅ Track can play");
     setLoadError(null);
+    setRetryCount(0);
   }, []);
 
   const handleError = useCallback((e: any) => {
@@ -279,27 +303,31 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
     if (error) {
       switch (error.code) {
         case error.MEDIA_ERR_ABORTED:
-          errorMessage = "Playback aborted";
+          errorMessage = "Playback was aborted";
           break;
         case error.MEDIA_ERR_NETWORK:
           errorMessage = "Network error while loading media";
           break;
         case error.MEDIA_ERR_DECODE:
-          errorMessage = "Media decode error";
+          errorMessage = "Media decode error - file may be corrupted";
           break;
         case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
-          errorMessage = "Media format not supported";
+          errorMessage = "Media format not supported by browser";
           break;
       }
     }
     
     setLoadError(errorMessage);
-    toast({
-      title: "Playback error",
-      description: errorMessage,
-      variant: "destructive",
-    });
-  }, [toast]);
+    
+    // Don't show toast for network errors during loading
+    if (error?.code !== error?.MEDIA_ERR_NETWORK || playerState.isPlaying) {
+      toast({
+        title: "Playback error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  }, [toast, playerState.isPlaying]);
 
   const handleEnded = useCallback(() => {
     if (playerState.repeat === 'one') {
@@ -363,7 +391,19 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
             Track {playerState.currentIndex + 1} of {tracks.length}
           </p>
           {loadError && (
-            <p className="text-sm text-red-500 mt-1">⚠️ {loadError}</p>
+            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded">
+              <p className="text-sm text-red-600 dark:text-red-400">⚠️ {loadError}</p>
+              {retryCount < 3 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={retryLoadTrack}
+                  className="mt-2"
+                >
+                  Retry ({retryCount}/3)
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
@@ -406,7 +446,7 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
           <Button
             size="icon"
             onClick={playerState.isPlaying ? pause : play}
-            disabled={isLoading || loadError !== null}
+            disabled={isLoading || (loadError !== null && retryCount >= 3)}
           >
             {isLoading ? (
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -464,10 +504,12 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
         {/* Debug Info */}
         {process.env.NODE_ENV === 'development' && (
           <div className="mt-4 p-2 bg-muted rounded text-xs">
-            <p>Current Track: {playerState.currentTrack}</p>
-            <p>Stream URL: {playerState.currentTrack ? MediaService.getStreamUrl(playerState.currentTrack) : 'None'}</p>
-            <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
-            <p>Error: {loadError || 'None'}</p>
+            <p><strong>Current Track:</strong> {playerState.currentTrack}</p>
+            <p><strong>Stream URL:</strong> {playerState.currentTrack ? MediaService.getStreamUrl(playerState.currentTrack) : 'None'}</p>
+            <p><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</p>
+            <p><strong>Error:</strong> {loadError || 'None'}</p>
+            <p><strong>Retry Count:</strong> {retryCount}/3</p>
+            <p><strong>Duration:</strong> {isFinite(playerState.duration) ? formatTime(playerState.duration) : 'Unknown'}</p>
           </div>
         )}
       </CardContent>
