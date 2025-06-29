@@ -57,13 +57,6 @@ calendarEventsRouter.get("/:id", async (req, res) => {
 // POST new calendar events
 calendarEventsRouter.post("/", async (req, res) => {
   try {
-    const getMonthFromDate = (date: number | Date) => {
-      if (typeof date === "number") {
-        date = new Date(date * 1000); // Convert seconds to milliseconds
-      }
-      return format(date, "MM");
-    };
-
     const data = req.body;
     if (!(data?.length >= 1)) {
       throw new Error("Calendar event data is required");
@@ -77,8 +70,9 @@ calendarEventsRouter.post("/", async (req, res) => {
       } else {
         valuesString += ", (?, ?, ?, ?, ?, ?, ?)";
       }
+      // Note: summary is already processed with month prefix when events are created
       valuesArray.push(
-        `${getMonthFromDate(item.start)} ${item.summary}`,
+        item.summary, // Use the summary as-is (already processed)
         item.start,
         item.end,
         item.description,
@@ -126,20 +120,13 @@ calendarEventsRouter.put("/:id", async (req, res) => {
       throw new Error("Calendar event ID is required");
     }
 
-    const getMonthFromDate = (date: number | Date) => {
-      if (typeof date === "number") {
-        date = new Date(date * 1000); // Convert seconds to milliseconds
-      }
-      return format(date, "MM");
-    };
-
     const dbResponse = await execute(
       `UPDATE calendar_events
              SET summary = ?, start = ?, end = ?, description = ?,
                      location = ?, uid = ?, raw_string = ?, updated_at = ?
              WHERE id = ?`,
       [
-        data.summary ? `${getMonthFromDate(data.start)} ${data.summary}` : data.summary,
+        data.summary, // Use summary as-is (no automatic month prefix on update)
         data.start,
         data.end,
         data.description,

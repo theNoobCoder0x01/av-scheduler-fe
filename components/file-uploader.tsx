@@ -7,6 +7,7 @@ import { parseIcsFile } from "@/lib/ics-parser";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { setEvents } from "@/lib/store/slices/eventsSlice";
 import { isFullDayEvent } from "@/lib/utils";
+import { processEventSummary } from "@/lib/gujarati-calendar";
 import { ICalendarEvent } from "@/models/calendar-event.model";
 import { FileText, Upload } from "lucide-react";
 import { useState } from "react";
@@ -67,13 +68,20 @@ export default function FileUploader({ events }: FileUploaderProps) {
     try {
       let parsedEvents = await parseIcsFile(file);
       console.log("Parsed events:", parsedEvents);
+      
+      // Process events: convert dates, remove Gujarati month names, and add month prefix
       parsedEvents = parsedEvents.map((event) => {
         const startDate = new Date(event.start);
         const endDate = new Date(event.end);
         const startEpoch = Math.floor(startDate.getTime() / 1000);
         const endEpoch = Math.floor(endDate.getTime() / 1000);
+        
+        // Process the summary to remove Gujarati month names and add month prefix
+        const processedSummary = processEventSummary(event.summary, startDate);
+        
         return {
           ...event,
+          summary: processedSummary,
           start: startEpoch,
           end: endEpoch,
           isFullDayEvent: isFullDayEvent(startDate, endDate),
@@ -89,8 +97,8 @@ export default function FileUploader({ events }: FileUploaderProps) {
         ])
       );
       toast({
-        title: "Calendar loaded",
-        description: `${parsedEvents.length} events found`,
+        title: "Calendar processed",
+        description: `${parsedEvents.length} events found and processed`,
         variant: "default",
       });
     } catch (error) {
@@ -127,7 +135,8 @@ export default function FileUploader({ events }: FileUploaderProps) {
               Upload your .ics calendar file
             </h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Drag and drop your file here, or click the button below to browse
+              Drag and drop your file here, or click the button below to browse.
+              Gujarati month names will be automatically removed and processed.
             </p>
             <input
               id="file-upload"
@@ -162,6 +171,10 @@ export default function FileUploader({ events }: FileUploaderProps) {
                 {isLoading ? "Processing..." : "Process Calendar"}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Processing will automatically remove Gujarati month names and calendar terms,
+              then add month numbers to event titles.
+            </p>
           </div>
         )}
       </CardContent>
