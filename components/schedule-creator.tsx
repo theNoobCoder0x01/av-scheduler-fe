@@ -1,6 +1,7 @@
 "use client";
 
 import PlaylistCreator from "@/components/playlist-creator";
+import MediaPlayerContainer from "@/components/media-player/media-player-container";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -39,6 +41,8 @@ import {
   CheckCircle,
   Clock,
   FileMusic,
+  Monitor,
+  Music,
   Pause,
   Play,
   Plus,
@@ -70,6 +74,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   const [isDaily, setIsDaily] = useState(true);
   const [isExecuting, setIsExecuting] = useState(false);
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
+  const [playerMode, setPlayerMode] = useState<"vlc" | "built-in">("vlc");
   const { toast } = useToast();
 
   // Fetch schedules from the server
@@ -383,220 +388,253 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
 
   return (
     <div className="space-y-8">
-      {/* Action Creator */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <div className="flex items-center justify-between">
-              <div>Schedule Media Actions</div>
-              <div>
-                <Button onClick={handleReloadAction} size="icon">
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="daily-mode"
-                checked={isDaily}
-                onCheckedChange={setIsDaily}
-              />
-              <label
-                htmlFor="daily-mode"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Daily Schedule
-              </label>
-            </div>
+      <Tabs defaultValue="scheduler" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="scheduler">Scheduler</TabsTrigger>
+          <TabsTrigger value="player">Media Player</TabsTrigger>
+          <TabsTrigger value="playlists">Playlist Creator</TabsTrigger>
+        </TabsList>
 
-            <div className="grid gap-4 md:grid-cols-4">
-              {!isDaily && (
-                <div className="md:col-span-2">
-                  <Select
-                    value={selectedEvent}
-                    onValueChange={setSelectedEvent}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an event" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {events.map((event) => (
-                        <SelectItem key={event.uid} value={event.uid}>
-                          {event.summary} (
-                          {format((event.start as number) * 1000, "MMM d")})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+        <TabsContent value="scheduler" className="space-y-6">
+          {/* Action Creator */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <div className="flex items-center justify-between">
+                  <div>Schedule Media Actions</div>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant={playerMode === "vlc" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setPlayerMode("vlc")}
+                      >
+                        <Monitor className="h-4 w-4 mr-2" />
+                        VLC
+                      </Button>
+                      <Button
+                        variant={playerMode === "built-in" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setPlayerMode("built-in")}
+                      >
+                        <Music className="h-4 w-4 mr-2" />
+                        Built-in
+                      </Button>
+                    </div>
+                    <Button onClick={handleReloadAction} size="icon">
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              )}
-              <div className={isDaily ? "md:col-span-2" : ""}>
-                <Select
-                  value={actionType}
-                  onValueChange={(value) => setActionType(value as ActionType)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Action" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="play">
-                      <div className="flex items-center">
-                        <Play className="mr-2 h-4 w-4" />
-                        <span>Play</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="pause">
-                      <div className="flex items-center">
-                        <Pause className="mr-2 h-4 w-4" />
-                        <span>Pause</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="stop">
-                      <div className="flex items-center">
-                        <Square className="mr-2 h-4 w-4" />
-                        <span>Stop</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="relative w-full">
-                  <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    type="time"
-                    className="pl-10"
-                    value={actionTime}
-                    onChange={(e) => setActionTime(e.target.value)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="daily-mode"
+                    checked={isDaily}
+                    onCheckedChange={setIsDaily}
                   />
+                  <label
+                    htmlFor="daily-mode"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Daily Schedule
+                  </label>
                 </div>
-                <Button onClick={handleAddAction} size="icon">
-                  <Plus className="h-4 w-4" />
-                </Button>
+
+                <div className="grid gap-4 md:grid-cols-4">
+                  {!isDaily && (
+                    <div className="md:col-span-2">
+                      <Select
+                        value={selectedEvent}
+                        onValueChange={setSelectedEvent}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an event" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {events.map((event) => (
+                            <SelectItem key={event.uid} value={event.uid}>
+                              {event.summary} (
+                              {format((event.start as number) * 1000, "MMM d")})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className={isDaily ? "md:col-span-2" : ""}>
+                    <Select
+                      value={actionType}
+                      onValueChange={(value) => setActionType(value as ActionType)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Action" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="play">
+                          <div className="flex items-center">
+                            <Play className="mr-2 h-4 w-4" />
+                            <span>Play</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="pause">
+                          <div className="flex items-center">
+                            <Pause className="mr-2 h-4 w-4" />
+                            <span>Pause</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="stop">
+                          <div className="flex items-center">
+                            <Square className="mr-2 h-4 w-4" />
+                            <span>Stop</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="relative w-full">
+                      <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="time"
+                        className="pl-10"
+                        value={actionTime}
+                        onChange={(e) => setActionTime(e.target.value)}
+                      />
+                    </div>
+                    <Button onClick={handleAddAction} size="icon">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* Scheduled Actions List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Scheduled Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {scheduledActions.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground">
-              No actions scheduled yet. Add actions above to get started.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Schedule Type</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Playlist Status</TableHead>
-                  <TableHead>Last Run</TableHead>
-                  <TableHead>Next Run</TableHead>
-                  <TableHead className="text-right">Options</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {scheduledActions.map((action, index) => (
-                  <TableRow key={index}>
-                    <TableCell>
-                      <span className="flex items-center">
-                        {action.isDaily ? (
-                          <>
-                            <Repeat className="mr-2 h-4 w-4 text-primary" />
-                            Daily
-                          </>
-                        ) : (
-                          <>
-                            <Calendar className="mr-2 h-4 w-4 text-primary" />
-                            One-time
-                          </>
-                        )}
-                      </span>
-                    </TableCell>
-                    <TableCell>{action.time}</TableCell>
-                    <TableCell>
-                      <span className="flex items-center">
-                        {action.actionType === "play" && (
-                          <Play className="mr-2 h-4 w-4 text-green-500" />
-                        )}
-                        {action.actionType === "pause" && (
-                          <Pause className="mr-2 h-4 w-4 text-amber-500" />
-                        )}
-                        {action.actionType === "stop" && (
-                          <Square className="mr-2 h-4 w-4 text-red-500" />
-                        )}
-                        {action.actionType.charAt(0).toUpperCase() +
-                          action.actionType.slice(1)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {action.eventName ? (
-                        <span className="font-medium">
-                          {action.eventName}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {renderPlaylistStatus(action)}
-                    </TableCell>
-                    <TableCell>
-                      {action.lastRun ? (
-                        formatTimestamp(action.lastRun)
-                      ) : (
-                        <span className="text-muted-foreground">Never</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {action.nextRun ? (
-                        formatTimestamp(action.nextRun)
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => executeAction(action)}
-                          disabled={isExecuting}
-                        >
-                          {isExecuting ? "Executing..." : "Execute"}
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => handleRemoveAction(index)}
-                          disabled={isExecuting}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+          {/* Scheduled Actions List */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Scheduled Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {scheduledActions.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  No actions scheduled yet. Add actions above to get started.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Schedule Type</TableHead>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Event</TableHead>
+                      <TableHead>Playlist Status</TableHead>
+                      <TableHead>Last Run</TableHead>
+                      <TableHead>Next Run</TableHead>
+                      <TableHead className="text-right">Options</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {scheduledActions.map((action, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <span className="flex items-center">
+                            {action.isDaily ? (
+                              <>
+                                <Repeat className="mr-2 h-4 w-4 text-primary" />
+                                Daily
+                              </>
+                            ) : (
+                              <>
+                                <Calendar className="mr-2 h-4 w-4 text-primary" />
+                                One-time
+                              </>
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell>{action.time}</TableCell>
+                        <TableCell>
+                          <span className="flex items-center">
+                            {action.actionType === "play" && (
+                              <Play className="mr-2 h-4 w-4 text-green-500" />
+                            )}
+                            {action.actionType === "pause" && (
+                              <Pause className="mr-2 h-4 w-4 text-amber-500" />
+                            )}
+                            {action.actionType === "stop" && (
+                              <Square className="mr-2 h-4 w-4 text-red-500" />
+                            )}
+                            {action.actionType.charAt(0).toUpperCase() +
+                              action.actionType.slice(1)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {action.eventName ? (
+                            <span className="font-medium">
+                              {action.eventName}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {renderPlaylistStatus(action)}
+                        </TableCell>
+                        <TableCell>
+                          {action.lastRun ? (
+                            formatTimestamp(action.lastRun)
+                          ) : (
+                            <span className="text-muted-foreground">Never</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {action.nextRun ? (
+                            formatTimestamp(action.nextRun)
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => executeAction(action)}
+                              disabled={isExecuting}
+                            >
+                              {isExecuting ? "Executing..." : "Execute"}
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => handleRemoveAction(index)}
+                              disabled={isExecuting}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Playlist Creator */}
-      <PlaylistCreator events={events} />
+        <TabsContent value="player">
+          <MediaPlayerContainer />
+        </TabsContent>
+
+        <TabsContent value="playlists">
+          <PlaylistCreator events={events} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

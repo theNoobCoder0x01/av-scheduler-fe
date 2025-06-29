@@ -8,6 +8,9 @@ import calendarEventsRouter from "./routes/calender-events";
 import schedulerRoutes from "./routes/scheduler";
 import settingsRouter from "./routes/settings";
 import playlistsRouter from "./routes/playlists";
+import mediaRouter from "./routes/media";
+import fileBrowserRouter from "./routes/file-browser";
+import playerControlRouter from "./routes/player-control";
 
 const app = express();
 const apiServer: Server = createServer(app);
@@ -20,6 +23,9 @@ app.use("/api/scheduler", schedulerRoutes);
 app.use("/api/calendar-events", calendarEventsRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/playlists", playlistsRouter);
+app.use("/api/media", mediaRouter);
+app.use("/api/files", fileBrowserRouter);
+app.use("/api/player", playerControlRouter);
 
 // Serve static files from the Next.js export
 const outDir = path.join(__dirname, "..", "..", "out");
