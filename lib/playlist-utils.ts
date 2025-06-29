@@ -48,3 +48,71 @@ export function parseM3uContent(content: string): string[] {
   
   return files;
 }
+
+/**
+ * Generates possible M3U filenames for events with slash-separated tithi names
+ * For "12 Sud Chaudas/Punam", it returns:
+ * 1. "12 Sud Chaudas.m3u" (first part)
+ * 2. "12 Sud Punam.m3u" (second part)  
+ * 3. "12 Sud Chaudas/Punam.m3u" (original with slash)
+ */
+export function generatePlaylistFilenames(eventName: string): string[] {
+  if (!eventName) return [];
+
+  // Clean the event name for file system compatibility
+  const cleanName = eventName.replace(/[<>:"|?*]/g, "_");
+  
+  // Check if the event name contains a slash
+  if (cleanName.includes('/')) {
+    const parts = cleanName.split('/').map(part => part.trim());
+    const filenames: string[] = [];
+    
+    // Extract the prefix (everything before the last space before the slash)
+    const slashIndex = cleanName.indexOf('/');
+    const beforeSlash = cleanName.substring(0, slashIndex);
+    const afterSlash = cleanName.substring(slashIndex + 1);
+    
+    // Find the last space before the slash to get the prefix
+    const lastSpaceIndex = beforeSlash.lastIndexOf(' ');
+    const prefix = lastSpaceIndex !== -1 ? beforeSlash.substring(0, lastSpaceIndex + 1) : '';
+    const firstTithi = lastSpaceIndex !== -1 ? beforeSlash.substring(lastSpaceIndex + 1) : beforeSlash;
+    
+    // 1. First tithi: "12 Sud Chaudas.m3u"
+    filenames.push(`${prefix}${firstTithi}.m3u`);
+    
+    // 2. Second tithi: "12 Sud Punam.m3u"
+    filenames.push(`${prefix}${afterSlash.trim()}.m3u`);
+    
+    // 3. Original with slash: "12 Sud Chaudas/Punam.m3u"
+    filenames.push(`${cleanName}.m3u`);
+    
+    return filenames;
+  } else {
+    // No slash, return single filename
+    return [`${cleanName}.m3u`];
+  }
+}
+
+/**
+ * Test function to verify playlist filename generation
+ */
+export function testPlaylistFilenames() {
+  const testCases = [
+    "12 Sud Chaudas/Punam",
+    "05 Sud Bij/Trij", 
+    "08 Vad Baras/Teras",
+    "03 Sud Ekadashi",
+    "Independence Day",
+    "10 Sud Choth/Pancham"
+  ];
+
+  console.log("Testing playlist filename generation:");
+  testCases.forEach(testCase => {
+    const filenames = generatePlaylistFilenames(testCase);
+    console.log(`"${testCase}" →`);
+    filenames.forEach((filename, index) => {
+      console.log(`  ${index + 1}. ${filename}`);
+    });
+    console.log();
+  });
+}

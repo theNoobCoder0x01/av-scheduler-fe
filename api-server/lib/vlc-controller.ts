@@ -76,6 +76,85 @@ async function sendHttpCommand(
   }
 }
 
+/**
+ * Generates possible M3U filenames for events with slash-separated tithi names
+ * For "12 Sud Chaudas/Punam", it returns:
+ * 1. "12 Sud Chaudas.m3u" (first part)
+ * 2. "12 Sud Punam.m3u" (second part)  
+ * 3. "12 Sud Chaudas/Punam.m3u" (original with slash)
+ */
+function generatePlaylistFilenames(eventName: string): string[] {
+  if (!eventName) return [];
+
+  // Clean the event name for file system compatibility
+  const cleanName = eventName.replace(/[<>:"|?*]/g, "_");
+  
+  // Check if the event name contains a slash
+  if (cleanName.includes('/')) {
+    const filenames: string[] = [];
+    
+    // Extract the prefix (everything before the last space before the slash)
+    const slashIndex = cleanName.indexOf('/');
+    const beforeSlash = cleanName.substring(0, slashIndex);
+    const afterSlash = cleanName.substring(slashIndex + 1);
+    
+    // Find the last space before the slash to get the prefix
+    const lastSpaceIndex = beforeSlash.lastIndexOf(' ');
+    const prefix = lastSpaceIndex !== -1 ? beforeSlash.substring(0, lastSpaceIndex + 1) : '';
+    const firstTithi = lastSpaceIndex !== -1 ? beforeSlash.substring(lastSpaceIndex + 1) : beforeSlash;
+    
+    // 1. First tithi: "12 Sud Chaudas.m3u"
+    filenames.push(`${prefix}${firstTithi}.m3u`);
+    
+    // 2. Second tithi: "12 Sud Punam.m3u"
+    filenames.push(`${prefix}${afterSlash.trim()}.m3u`);
+    
+    // 3. Original with slash: "12 Sud Chaudas/Punam.m3u"
+    filenames.push(`${cleanName}.m3u`);
+    
+    return filenames;
+  } else {
+    // No slash, return single filename
+    return [`${cleanName}.m3u`];
+  }
+}
+
+/**
+ * Checks if a file exists
+ */
+function fileExists(filePath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const fs = require('fs');
+    fs.access(filePath, fs.constants.F_OK, (err: any) => {
+      resolve(!err);
+    });
+  });
+}
+
+/**
+ * Finds the first existing playlist file from possible filenames
+ */
+async function findPlaylistFile(playlistName: string, playlistFolderPath: string): Promise<string | null> {
+  const possibleFilenames = generatePlaylistFilenames(playlistName);
+  
+  console.log(`Looking for playlist files for "${playlistName}":`);
+  
+  for (const filename of possibleFilenames) {
+    const filePath = path.join(playlistFolderPath, filename);
+    console.log(`  Checking: ${filePath}`);
+    
+    if (await fileExists(filePath)) {
+      console.log(`  ✓ Found: ${filePath}`);
+      return filePath;
+    } else {
+      console.log(`  ✗ Not found: ${filePath}`);
+    }
+  }
+  
+  console.log(`  No playlist file found for "${playlistName}"`);
+  return null;
+}
+
 async function playPlaylist(
   playlistName: string
 ): Promise<{ success: boolean; message: string }> {
@@ -90,9 +169,17 @@ async function playPlaylist(
     }
 
     const settings = getSettings();
-    const cleanName = playlistName.replace(/[<>:"/\\|?*]/g, "_");
-    const fileName = `${cleanName}.m3u`;
-    const filePath = path.join(settings.playlistFolderPath, fileName);
+    
+    // Find the first existing playlist file
+    const filePath = await findPlaylistFile(playlistName, settings.playlistFolderPath);
+    
+    if (!filePath) {
+      const possibleFilenames = generatePlaylistFilenames(playlistName);
+      return {
+        success: false,
+        message: `No playlist file found for "${playlistName}". Tried: ${possibleFilenames.join(', ')}`,
+      };
+    }
 
     if (USE_HTTP_INTERFACE) {
       console.log("Using HTTP interface to control VLC");
@@ -167,7 +254,7 @@ async function playPlaylist(
       }
     }
 
-    currentPlaylist = fileName;
+    currentPlaylist = path.basename(filePath);
     return {
       success: true,
       message: `Started playing playlist: ${currentPlaylist}`,
