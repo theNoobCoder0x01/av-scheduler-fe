@@ -5,11 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { parseM3uContent } from "@/lib/playlist-utils";
 import { PlaylistService } from "@/services/playlist.service";
+import { WebSocketService } from "@/services/web-socket.service";
 import { Monitor, Music, Video } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AudioPlayer from "./audio-player";
 import VideoPlayer from "./video-player";
 import FileBrowser from "./file-browser";
+import { useToast } from "@/hooks/use-toast";
 
 interface MediaPlayerContainerProps {
   playlistPath?: string;
@@ -21,28 +23,107 @@ export default function MediaPlayerContainer({ playlistPath, autoPlay = false }:
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [playerMode, setPlayerMode] = useState<"built-in" | "vlc">("built-in");
   const [mediaPlayerType, setMediaPlayerType] = useState<"auto" | "audio" | "video">("auto");
+  const [currentPlaylistName, setCurrentPlaylistName] = useState<string>("");
+  const [shouldAutoPlay, setShouldAutoPlay] = useState(autoPlay);
+  const { toast } = useToast();
 
   // Load playlist from M3U file
-  const loadPlaylistFromFile = async (filePath: string) => {
+  const loadPlaylistFromFile = async (filePath: string, autoPlayFlag: boolean = false) => {
     try {
-      // Read M3U file content (this would need to be implemented via API)
-      // For now, we'll simulate loading tracks
-      const tracks = [filePath]; // Placeholder
-      setCurrentTracks(tracks);
+      console.log("🎵 Loading playlist from file:", filePath);
+      
+      const playlistContent = await PlaylistService.loadPlaylistContent(filePath);
+      
+      if (playlistContent.tracks.length === 0) {
+        toast({
+          title: "Empty playlist",
+          description: "The playlist file contains no valid tracks",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setCurrentTracks(playlistContent.tracks);
       setCurrentTrackIndex(0);
+      setCurrentPlaylistName(playlistContent.metadata.name);
+      setShouldAutoPlay(autoPlayFlag);
+      
+      toast({
+        title: "Playlist loaded",
+        description: `Loaded "${playlistContent.metadata.name}" with ${playlistContent.tracks.length} tracks`,
+      });
+
+      if (playlistContent.metadata.invalidTracks > 0) {
+        toast({
+          title: "Some tracks unavailable",
+          description: `${playlistContent.metadata.invalidTracks} tracks could not be found and were skipped`,
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error loading playlist:", error);
+      toast({
+        title: "Error loading playlist",
+        description: "Failed to load the playlist file",
+        variant: "destructive",
+      });
     }
   };
+
+  // Load playlist on mount if provided
+  useEffect(() => {
+    if (playlistPath) {
+      loadPlaylistFromFile(playlistPath, autoPlay);
+    }
+  }, [playlistPath, autoPlay]);
+
+  // Listen for WebSocket commands
+  useEffect(() => {
+    const handleMediaPlayerCommand = (data: any) => {
+      if (data.type === "mediaPlayerCommand") {
+        console.log("🎵 Media player received command:", data.command);
+        
+        switch (data.command) {
+          case "loadAndPlay":
+            if (data.data?.playlistPath) {
+              loadPlaylistFromFile(data.data.playlistPath, true);
+            }
+            break;
+          case "pause":
+            // Trigger pause on current player
+            setShouldAutoPlay(false);
+            break;
+          case "stop":
+            // Stop playback and clear playlist
+            setCurrentTracks([]);
+            setCurrentTrackIndex(0);
+            setCurrentPlaylistName("");
+            setShouldAutoPlay(false);
+            break;
+        }
+      }
+    };
+
+    WebSocketService.addListener(handleMediaPlayerCommand);
+    return () => WebSocketService.removeListener(handleMediaPlayerCommand);
+  }, []);
 
   const handleFileSelect = (filePath: string) => {
     setCurrentTracks([filePath]);
     setCurrentTrackIndex(0);
+    setCurrentPlaylistName("");
+    setShouldAutoPlay(false);
   };
 
   const handlePlaylistSelect = (files: string[]) => {
     setCurrentTracks(files);
     setCurrentTrackIndex(0);
+    setCurrentPlaylistName("");
+    setShouldAutoPlay(false);
+  };
+
+  const handlePlaylistFileSelect = async (playlistPath: string) => {
+    await loadPlaylistFromFile(playlistPath, false);
   };
 
   const handleTrackChange = (track: string, index: number) => {
@@ -77,6 +158,7 @@ export default function MediaPlayerContainer({ playlistPath, autoPlay = false }:
           tracks={currentTracks}
           initialTrackIndex={currentTrackIndex}
           onTrackChange={handleTrackChange}
+          autoPlay={shouldAutoPlay}
         />
       );
     } else if (mediaPlayerType === "audio" || (mediaPlayerType === "auto" && isAudio)) {
@@ -85,6 +167,7 @@ export default function MediaPlayerContainer({ playlistPath, autoPlay = false }:
           tracks={currentTracks}
           initialTrackIndex={currentTrackIndex}
           onTrackChange={handleTrackChange}
+          autoPlay={shouldAutoPlay}
         />
       );
     } else {
@@ -94,6 +177,7 @@ export default function MediaPlayerContainer({ playlistPath, autoPlay = false }:
           tracks={currentTracks}
           initialTrackIndex={currentTrackIndex}
           onTrackChange={handleTrackChange}
+          autoPlay={shouldAutoPlay}
         />
       );
     }
@@ -170,6 +254,7 @@ export default function MediaPlayerContainer({ playlistPath, autoPlay = false }:
           <FileBrowser
             onFileSelect={handleFileSelect}
             onPlaylistSelect={handlePlaylistSelect}
+            onPlaylistFileSelect={handlePlaylistFileSelect}
             mediaOnly={true}
           />
 
@@ -184,7 +269,7 @@ export default function MediaPlayerContainer({ playlistPath, autoPlay = false }:
                     <Video className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Select a media file or playlist to start playing</p>
                     <p className="text-xs mt-2 opacity-75">
-                      Supports: MP4, WebM, MOV, AVI, MP3, WAV, FLAC, AAC and more
+                      Supports: MP4, WebM, MOV, AVI, MP3, WAV, FLAC, AAC, M3U playlists and more
                     </p>
                   </div>
                 </CardContent>
@@ -195,7 +280,14 @@ export default function MediaPlayerContainer({ playlistPath, autoPlay = false }:
             {currentTracks.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Current Playlist</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Current Playlist</span>
+                    {currentPlaylistName && (
+                      <span className="text-sm text-muted-foreground">
+                        {currentPlaylistName}
+                      </span>
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2 max-h-64 overflow-y-auto">

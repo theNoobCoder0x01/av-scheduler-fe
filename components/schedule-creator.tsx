@@ -67,7 +67,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   const [actionType, setActionType] = useState<ActionType>("play");
   const [actionTime, setActionTime] = useState<string>("");
   const [isDaily, setIsDaily] = useState(true);
-  const [isExecuting, setIsExecuting] = useState(false);
+  const [executingActions, setExecutingActions] = useState<Set<string>>(new Set());
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
   const { toast } = useToast();
 
@@ -146,9 +146,26 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
         return;
       }
 
+      // Validate time format (now supports HH:MM:SS)
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])(:([0-5][0-9]))?$/;
+      if (!timeRegex.test(actionTime)) {
+        toast({
+          title: "Invalid time format",
+          description: "Please use HH:MM or HH:MM:SS format (e.g., 14:30 or 14:30:45)",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Ensure seconds are included (default to :00 if not provided)
+      let formattedTime = actionTime;
+      if (actionTime.split(':').length === 2) {
+        formattedTime += ':00';
+      }
+
       let newAction: ScheduledAction = {
         actionType,
-        time: actionTime,
+        time: formattedTime,
         isDaily,
       };
 
@@ -157,13 +174,19 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
         if (!event) return;
         if (typeof event.start === "number" && typeof event.end === "number") {
           // Create date object based on event date and action time
-          const [hours, minutes] = actionTime.split(":").map(Number);
+          const timeParts = formattedTime.split(":");
+          const hours = parseInt(timeParts[0]);
+          const minutes = parseInt(timeParts[1]);
+          const seconds = parseInt(timeParts[2]);
+          
           let actionDate: number | Date = new Date(
             (event.start as number) * 1000
           );
-          actionDate.setHours(hours, minutes, 0, 0);
+          actionDate.setHours(hours, minutes, seconds, 0);
+          
           // Convert to seconds
           const actionDateSeconds = Math.floor(actionDate.getTime() / 1000);
+          
           // Validate time is within event duration
           if (
             actionDateSeconds < event.start ||
@@ -196,8 +219,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
       toast({
         title: "Action scheduled",
         description: isDaily
-          ? `Daily ${actionType} action scheduled for ${actionTime}`
-          : `${actionType} action scheduled for ${newAction.eventName} at ${actionTime}`,
+          ? `Daily ${actionType} action scheduled for ${formattedTime}`
+          : `${actionType} action scheduled for ${newAction.eventName} at ${formattedTime}`,
       });
     } catch (err) {
       console.error("Error scheduling action:", err);
@@ -242,26 +265,65 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   };
 
   const executeAction = async (action: ScheduledAction) => {
-    setIsExecuting(true);
+    if (!action.id) {
+      toast({
+        title: "Error",
+        description: "Cannot execute action without ID",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Add to executing set
+    setExecutingActions(prev => new Set(prev).add(action.id!));
+
     try {
-      // const result = await controlVlc(action.actionType, action.eventName);
-      let result = { success: true, message: "Action executed" }; // Mocked result
+      console.log("🎯 Executing scheduled action manually:", action);
+
+      // Call the backend API to execute the action
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082/api"}/scheduler/execute/${action.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          actionType: action.actionType,
+          eventName: action.eventName,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
 
       toast({
-        title: result.success ? "Action executed" : "Action failed",
+        title: result.success ? "Action executed successfully" : "Action execution failed",
         description: result.message,
         variant: result.success ? "default" : "destructive",
       });
+
+      // Refresh schedules to get updated last run time
+      if (result.success) {
+        fetchSchedules();
+      }
     } catch (error) {
+      console.error("Error executing action:", error);
       toast({
-        title: "Action failed",
+        title: "Action execution failed",
         description: `Failed to execute ${action.actionType} action: ${
           (error as Error).message
         }`,
         variant: "destructive",
       });
     } finally {
-      setIsExecuting(false);
+      // Remove from executing set
+      setExecutingActions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(action.id!);
+        return newSet;
+      });
     }
   };
 
@@ -468,15 +530,22 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                   <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     type="time"
+                    step="1"
                     className="pl-10"
                     value={actionTime}
                     onChange={(e) => setActionTime(e.target.value)}
+                    placeholder="HH:MM:SS"
                   />
                 </div>
                 <Button onClick={handleAddAction} size="icon">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
+            
+            {/* Time format help text */}
+            <div className="text-xs text-muted-foreground">
+              💡 Time format: HH:MM:SS (e.g., 14:30:45) or HH:MM (seconds default to :00)
             </div>
           </div>
         </CardContent>
@@ -524,7 +593,11 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                         )}
                       </span>
                     </TableCell>
-                    <TableCell>{action.time}</TableCell>
+                    <TableCell>
+                      <span className="font-mono text-sm">
+                        {action.time}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <span className="flex items-center">
                         {action.actionType === "play" && (
@@ -572,15 +645,25 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => executeAction(action)}
-                          disabled={isExecuting}
+                          disabled={executingActions.has(action.id || "")}
                         >
-                          {isExecuting ? "Executing..." : "Execute"}
+                          {executingActions.has(action.id || "") ? (
+                            <>
+                              <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+                              Executing...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-3 w-3 mr-2" />
+                              Execute
+                            </>
+                          )}
                         </Button>
                         <Button
                           variant="destructive"
                           size="icon"
                           onClick={() => handleRemoveAction(index)}
-                          disabled={isExecuting}
+                          disabled={executingActions.has(action.id || "")}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

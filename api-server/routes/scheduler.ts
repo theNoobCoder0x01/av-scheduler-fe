@@ -1,5 +1,6 @@
 import express from "express";
 import { SchedulerService } from "../services/scheduler.service";
+import { controlVlc } from "../lib/vlc-controller";
 
 const schedulerRoutes = express.Router();
 
@@ -48,6 +49,60 @@ schedulerRoutes.post("/", async (req, res) => {
     console.error("Error creating scheduled action:", err);
     res.status(500).json({
       message: "Failed to create scheduled action",
+      error: err.message,
+    });
+  }
+});
+
+// Execute scheduled action manually
+schedulerRoutes.post("/execute/:id", async (req, res) => {
+  try {
+    const actionId = parseInt(req.params.id ?? "");
+    const { actionType, eventName } = req.body;
+
+    if (!actionId) {
+      res.status(400).json({
+        success: false,
+        message: "Action ID is required",
+      });
+      return;
+    }
+
+    if (!actionType) {
+      res.status(400).json({
+        success: false,
+        message: "Action type is required",
+      });
+      return;
+    }
+
+    console.log(`🎯 Manually executing scheduled action ${actionId}: ${actionType} for ${eventName || 'current event'}`);
+
+    // Execute the action using the same logic as the scheduler
+    const result = await controlVlc(actionType, eventName);
+
+    if (result.success) {
+      // Update the last run time for this action
+      const now = Math.floor(Date.now() / 1000);
+      await SchedulerService.patchScheduledAction(actionId, {
+        lastRun: now,
+      });
+
+      console.log(`✅ Manual execution successful: ${result.message}`);
+    } else {
+      console.log(`❌ Manual execution failed: ${result.message}`);
+    }
+
+    res.status(200).json({
+      success: result.success,
+      message: result.message,
+      executedAt: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    console.error("Error executing scheduled action:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to execute scheduled action",
       error: err.message,
     });
   }

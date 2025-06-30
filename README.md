@@ -101,6 +101,36 @@ A comprehensive media scheduling application with calendar integration, playlist
 └── models/            # TypeScript interfaces
 ```
 
+### 🚀 **NEW: Automated Static Routing System**
+
+This application now features a **fully automated routing system** that eliminates the need for manual route configuration:
+
+#### **How It Works:**
+1. **Auto-Discovery**: Automatically scans the Next.js `out/` directory for HTML files
+2. **Dynamic Route Creation**: Creates Express routes for each discovered HTML file
+3. **Smart Fallback**: Handles nested routes and SPA fallback intelligently
+4. **Zero Configuration**: No manual route setup required when adding new pages
+
+#### **Benefits:**
+- ✅ **Add any new Next.js page** - routing is handled automatically
+- ✅ **No backend changes needed** when adding frontend pages
+- ✅ **Intelligent route matching** for nested paths
+- ✅ **SPA fallback support** for client-side routing
+- ✅ **Development and production ready**
+
+#### **Example:**
+```bash
+# Add a new page: app/dashboard/page.tsx
+# After build, it becomes: out/dashboard.html
+# Route automatically available: /dashboard
+# No backend configuration required! 🎉
+```
+
+#### **Test the Routing System:**
+```bash
+npm run test:routing
+```
+
 ### Available Scripts
 
 - `npm run dev:local` - Start both API and frontend
@@ -111,6 +141,18 @@ A comprehensive media scheduling application with calendar integration, playlist
 - `npm run build` - Build for production
 - `npm run electron:dev` - Start Electron app in development
 - `npm run electron:build` - Build Electron app for distribution
+- `npm run test:routing` - Test the automated routing system
+
+### Enhanced Build Process
+
+The build process is now more robust and organized:
+
+```bash
+npm run build:clean      # Clean previous builds
+npm run build:static     # Generate Next.js static export
+npm run build:electron   # Compile TypeScript for Electron
+npm run build:package    # Package Electron app
+```
 
 ### Environment Variables
 
@@ -137,6 +179,7 @@ The application uses SQLite for data storage:
 ### Scheduler
 - `GET /api/scheduler` - Get scheduled actions
 - `POST /api/scheduler` - Create scheduled action
+- `POST /api/scheduler/execute/:id` - Execute scheduled action manually
 - `DELETE /api/scheduler/:id` - Delete scheduled action
 
 ### Media Streaming
@@ -159,6 +202,7 @@ The application uses SQLite for data storage:
 - `PATCH /api/settings` - Update settings
 - `GET /api/playlists` - Get available playlists
 - `GET /api/playlists/check/:name` - Check playlist existence
+- `GET /api/playlists/content/:encodedPath` - Load playlist content
 
 ## 🔧 Configuration
 
@@ -181,6 +225,7 @@ Configure the playlist folder path in Settings. The application will:
 - **Real-time Sync**: WebSocket-based state synchronization
 - **File Browser**: Navigate and select media files
 - **Multi-selection**: Create playlists from selected files
+- **Auto-play Support**: Automatic playback from scheduled actions
 
 ### VLC Integration
 - **External Control**: HTTP interface control
@@ -198,13 +243,23 @@ Use `npm run dev:local` for the best development experience with hot reload on b
 2. Find the built application in the `dist` folder
 3. Distribute the appropriate package for your platform
 
+### Adding New Pages
+Thanks to the automated routing system, adding new pages is simple:
+
+1. **Create your Next.js page**: `app/new-page/page.tsx`
+2. **Build the application**: `npm run build`
+3. **That's it!** The route `/new-page` is automatically available
+
+No backend configuration required! 🎉
+
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Test with `npm run dev:local`
-5. Submit a pull request
+5. Test routing with `npm run test:routing`
+6. Submit a pull request
 
 ## 📝 License
 

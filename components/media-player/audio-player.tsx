@@ -24,9 +24,15 @@ interface AudioPlayerProps {
   tracks: string[];
   initialTrackIndex?: number;
   onTrackChange?: (track: string, index: number) => void;
+  autoPlay?: boolean;
 }
 
-export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChange }: AudioPlayerProps) {
+export default function AudioPlayer({ 
+  tracks, 
+  initialTrackIndex = 0, 
+  onTrackChange,
+  autoPlay = false 
+}: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { toast } = useToast();
   const [playerState, setPlayerState] = useState<PlayerState>({
@@ -59,11 +65,30 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
     }
   }, [tracks, initialTrackIndex]);
 
+  // Auto-play when autoPlay prop changes
+  useEffect(() => {
+    if (autoPlay && tracks.length > 0 && !playerState.isPlaying) {
+      // Small delay to ensure track is loaded
+      setTimeout(() => {
+        play();
+      }, 500);
+    }
+  }, [autoPlay, tracks]);
+
   // WebSocket listener for remote control
   useEffect(() => {
     const handlePlayerCommand = (data: any) => {
       if (data.type === "playerCommand") {
         handleRemoteCommand(data.command, data.data);
+      } else if (data.type === "mediaPlayerCommand") {
+        switch (data.command) {
+          case "pause":
+            pause();
+            break;
+          case "stop":
+            stop();
+            break;
+        }
       }
     };
 
@@ -390,6 +415,11 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
           <p className="text-sm text-muted-foreground">
             Track {playerState.currentIndex + 1} of {tracks.length}
           </p>
+          {autoPlay && (
+            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+              ▶️ Auto-playing from scheduler
+            </p>
+          )}
           {loadError && (
             <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded">
               <p className="text-sm text-red-600 dark:text-red-400">⚠️ {loadError}</p>
@@ -510,6 +540,7 @@ export default function AudioPlayer({ tracks, initialTrackIndex = 0, onTrackChan
             <p><strong>Error:</strong> {loadError || 'None'}</p>
             <p><strong>Retry Count:</strong> {retryCount}/3</p>
             <p><strong>Duration:</strong> {isFinite(playerState.duration) ? formatTime(playerState.duration) : 'Unknown'}</p>
+            <p><strong>Auto Play:</strong> {autoPlay ? 'Yes' : 'No'}</p>
           </div>
         )}
       </CardContent>

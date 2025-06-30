@@ -10,49 +10,20 @@ const nextConfig = {
     }
     return config;
   },
-  // Remove output: "export" for local development
-  // This will be added back for electron builds
-  ...(process.env.NODE_ENV === "production" &&
-  process.env.BUILD_TARGET === "electron"
-    ? { output: "export" }
-    : {
-        // Add rewrites for API calls in development
-        async rewrites() {
-          return [
-            {
-              source: "/api/:path*",
-              destination: "http://localhost:8082/api/:path*",
-            },
-          ];
-        },
-
-        // Add headers for media streaming
-        async headers() {
-          return [
-            {
-              source: "/api/media/:path*",
-              headers: [
-                {
-                  key: "Access-Control-Allow-Origin",
-                  value: "*",
-                },
-                {
-                  key: "Access-Control-Allow-Methods",
-                  value: "GET, HEAD, OPTIONS",
-                },
-                {
-                  key: "Access-Control-Allow-Headers",
-                  value: "Range, Content-Type, Authorization",
-                },
-                {
-                  key: "Accept-Ranges",
-                  value: "bytes",
-                },
-              ],
-            },
-          ];
-        },
-      }),
+  
+  // CRITICAL: Always export static files for Electron
+  output: "export",
+  
+  // Ensure trailing slash is false for proper routing
+  trailingSlash: false,
+  
+  // Disable image optimization for static export
+  images: {
+    unoptimized: true
+  },
+  
+  // Configure asset prefix for proper static file serving
+  assetPrefix: process.env.NODE_ENV === 'production' ? '' : '',
 };
 
 module.exports = nextConfig;

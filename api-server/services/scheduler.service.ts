@@ -55,13 +55,17 @@ export class SchedulerService {
       throw new Error("Action data is required");
     }
 
-    // Parse time into hours and minutes
-    const [hours, minutes] = data.time.split(":").map(Number);
+    // Parse time into hours, minutes, and seconds (with seconds support)
+    const timeParts = data.time.split(":");
+    const hours = parseInt(timeParts[0]);
+    const minutes = parseInt(timeParts[1]);
+    const seconds = timeParts.length > 2 ? parseInt(timeParts[2]) : 0;
+    
     const now = new Date();
 
-    // Set the time for today
+    // Set the time for today with seconds precision
     const todayWithTime = new Date(now);
-    todayWithTime.setHours(hours, minutes, 0, 0);
+    todayWithTime.setHours(hours, minutes, seconds, 0);
 
     // Calculate next run time
     let nextRun = Math.floor(todayWithTime.getTime() / 1000);

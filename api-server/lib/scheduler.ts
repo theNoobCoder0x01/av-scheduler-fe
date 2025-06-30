@@ -67,15 +67,28 @@ class ActionScheduler {
   }
 
   private scheduleDailyAction(action: ScheduledAction): void {
-    const [hours, minutes] = action.time.split(":").map(Number);
+    // Parse time with seconds support (HH:MM:SS or HH:MM)
+    const timeParts = action.time.split(":");
+    const hours = parseInt(timeParts[0]);
+    const minutes = parseInt(timeParts[1]);
+    const seconds = timeParts.length > 2 ? parseInt(timeParts[2]) : 0;
+    
     const scheduleId = `daily-${action.actionType}-${action.time}`;
     const now = new Date();
     const scheduledTime = new Date(now);
-    scheduledTime.setHours(hours, minutes, 0, 0);
+    
+    // Set the exact time with seconds precision
+    scheduledTime.setHours(hours, minutes, seconds, 0);
+    
     if (scheduledTime.getTime() < now.getTime()) {
       scheduledTime.setDate(scheduledTime.getDate() + 1);
     }
+    
     const initialDelay = scheduledTime.getTime() - now.getTime();
+    
+    console.log(`⏰ Scheduling daily action "${action.actionType}" for ${action.time} (${hours}:${minutes}:${seconds})`);
+    console.log(`⏰ Initial delay: ${Math.round(initialDelay / 1000)} seconds`);
+    
     setTimeout(() => {
       this.executeAction(action);
       const interval = setInterval(() => {
@@ -86,7 +99,7 @@ class ActionScheduler {
   }
 
   private async executeAction(action: ScheduledAction): Promise<void> {
-    console.log("Executing scheduled action:", action);
+    console.log("⚡ Executing scheduled action:", action);
     if (!action.actionType) {
       console.error("No action type specified");
       return;
@@ -97,7 +110,7 @@ class ActionScheduler {
     }
     try {
       const result = await controlVlc(action.actionType, action.eventName);
-      console.log("Action executed successfully:", action.actionType);
+      console.log("✅ Action executed successfully:", action.actionType);
       console.log("Result: " + JSON.stringify(result, null, 2));
       const now = Math.floor(Date.now() / 1000);
       const nextRun = action.isDaily ? now + 24 * 60 * 60 : undefined;
@@ -115,7 +128,7 @@ class ActionScheduler {
         result,
       });
     } catch (error) {
-      console.error("Failed to execute scheduled action:", error);
+      console.error("❌ Failed to execute scheduled action:", error);
       broadcast({
         type: "scheduledActionError",
         action,

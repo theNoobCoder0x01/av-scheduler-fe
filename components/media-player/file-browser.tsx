@@ -10,6 +10,7 @@ import {
   FileItem,
   SystemDrive
 } from "@/services/file-browser.service";
+import { PlaylistService } from "@/services/playlist.service";
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,17 +22,24 @@ import {
   Music,
   Play,
   Search,
-  Video
+  Video,
+  FileMusic
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 interface FileBrowserProps {
   onFileSelect?: (filePath: string) => void;
   onPlaylistSelect?: (files: string[]) => void;
+  onPlaylistFileSelect?: (playlistPath: string) => void;
   mediaOnly?: boolean;
 }
 
-export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly = false }: FileBrowserProps) {
+export default function FileBrowser({ 
+  onFileSelect, 
+  onPlaylistSelect, 
+  onPlaylistFileSelect,
+  mediaOnly = false 
+}: FileBrowserProps) {
   const [currentContents, setCurrentContents] = useState<DirectoryContents | null>(null);
   const [drives, setDrives] = useState<SystemDrive[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,6 +66,9 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
     // Streaming formats
     'm3u8', 'ts', 'webm', 'ogv'
   ];
+
+  // Playlist extensions
+  const playlistExtensions = ['m3u', 'm3u8', 'pls'];
 
   // Load initial data
   useEffect(() => {
@@ -121,6 +132,11 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
     return mediaExtensions.includes(ext);
   };
 
+  const isPlaylistFile = (item: FileItem) => {
+    const ext = item.extension.toLowerCase().replace('.', '');
+    return playlistExtensions.includes(ext);
+  };
+
   const getFileIcon = (item: FileItem) => {
     if (item.isDirectory) {
       return <Folder className="h-4 w-4 text-blue-500" />;
@@ -129,7 +145,9 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
     const ext = item.extension.toLowerCase().replace('.', '');
     const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'wmv', 'flv', '3gp', 'm4v', 'mpg', 'mpeg', 'ogv'];
     
-    if (videoExtensions.includes(ext)) {
+    if (playlistExtensions.includes(ext)) {
+      return <FileMusic className="h-4 w-4 text-orange-500" />;
+    } else if (videoExtensions.includes(ext)) {
       return <Video className="h-4 w-4 text-purple-500" />;
     } else if (isMediaFile(item)) {
       return <Music className="h-4 w-4 text-green-500" />;
@@ -141,13 +159,18 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
   const handleItemClick = (item: FileItem) => {
     if (item.isDirectory) {
       browseDirectory(item.path);
+    } else if (isPlaylistFile(item)) {
+      onPlaylistFileSelect?.(item.path);
     } else if (isMediaFile(item)) {
       onFileSelect?.(item.path);
     }
   };
 
   const handleItemDoubleClick = (item: FileItem) => {
-    if (isMediaFile(item)) {
+    if (isPlaylistFile(item)) {
+      // Load playlist and play it
+      onPlaylistFileSelect?.(item.path);
+    } else if (isMediaFile(item)) {
       // Get all media files in current directory for playlist
       const mediaFiles = currentContents?.items
         .filter(i => isMediaFile(i))
@@ -207,7 +230,9 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
   };
 
   const displayItems = searchResults.length > 0 ? searchResults : currentContents?.items || [];
-  const filteredItems = mediaOnly ? displayItems.filter(item => item.isDirectory || isMediaFile(item)) : displayItems;
+  const filteredItems = mediaOnly 
+    ? displayItems.filter(item => item.isDirectory || isMediaFile(item) || isPlaylistFile(item)) 
+    : displayItems;
 
   return (
     <Card className="h-full flex flex-col">
@@ -285,7 +310,7 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
         {/* Supported Formats Info */}
         {mediaOnly && (
           <div className="text-xs text-muted-foreground">
-            <p>Supported formats: MP3, MP4, WebM, MOV, AVI, MKV, WAV, FLAC, AAC, and many more</p>
+            <p>Supported: MP3, MP4, WebM, MOV, AVI, MKV, WAV, FLAC, AAC, M3U playlists and more</p>
           </div>
         )}
       </CardHeader>
@@ -335,18 +360,38 @@ export default function FileBrowser({ onFileSelect, onPlaylistSelect, mediaOnly 
                       <div className="text-xs text-muted-foreground flex items-center space-x-2">
                         <span>{formatFileSize(item.size)}</span>
                         <span className="uppercase">{item.extension.replace('.', '')}</span>
+                        {isPlaylistFile(item) && (
+                          <span className="text-orange-600 dark:text-orange-400">Playlist</span>
+                        )}
                       </div>
                     )}
                   </div>
                   
-                  {isMediaFile(item) && (
-                    <input
-                      type="checkbox"
-                      checked={selectedFiles.has(item.path)}
-                      onChange={() => toggleFileSelection(item.path)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="ml-2"
-                    />
+                  {(isMediaFile(item) || isPlaylistFile(item)) && (
+                    <div className="flex items-center space-x-2">
+                      {isPlaylistFile(item) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPlaylistFileSelect?.(item.path);
+                          }}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Play className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {isMediaFile(item) && (
+                        <input
+                          type="checkbox"
+                          checked={selectedFiles.has(item.path)}
+                          onChange={() => toggleFileSelection(item.path)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="ml-2"
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               ))}

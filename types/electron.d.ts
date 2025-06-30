@@ -6,9 +6,9 @@ declare global {
     electron?: {
       platform: string;
       openFolderDialog: () => Promise<string | null>;
-      openMediaPlayer: (playlistPath?: string) => Promise<void>;
+      openMediaPlayer: (playlistPath?: string, autoPlay?: boolean) => Promise<void>;
       closeMediaPlayer: () => Promise<void>;
-      onLoadPlaylist: (callback: (playlistPath: string) => void) => void;
+      onLoadPlaylist: (callback: (data: { playlistPath: string; autoPlay: boolean }) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
   }

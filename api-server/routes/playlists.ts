@@ -2,6 +2,7 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { getSettings } from "../lib/settings";
+import { parseM3uContent } from "../../lib/playlist-utils";
 
 const playlistsRouter = express.Router();
 
@@ -54,6 +55,72 @@ playlistsRouter.get("/", async (req, res) => {
       message: "Failed to fetch playlists",
       error: err.message,
     });
+  }
+});
+
+// GET playlist content by path
+playlistsRouter.get("/content/:encodedPath(*)", async (req, res) => {
+  try {
+    const encodedPath = req.params.encodedPath;
+    
+    if (!encodedPath) {
+      res.status(400).json({ error: "Playlist path is required" });
+      return;
+    }
+
+    let playlistPath: string;
+    try {
+      playlistPath = decodeURIComponent(encodedPath);
+    } catch (decodeError) {
+      res.status(400).json({ error: "Invalid playlist path encoding" });
+      return;
+    }
+    
+    console.log("📋 Loading playlist content:", playlistPath);
+    
+    if (!fs.existsSync(playlistPath)) {
+      res.status(404).json({ error: "Playlist file not found" });
+      return;
+    }
+
+    const ext = path.extname(playlistPath).toLowerCase();
+    
+    if (ext !== '.m3u' && ext !== '.m3u8') {
+      res.status(400).json({ error: "Not a supported playlist file" });
+      return;
+    }
+
+    // Read and parse the playlist file
+    const content = fs.readFileSync(playlistPath, 'utf-8');
+    const tracks = parseM3uContent(content);
+    
+    // Filter out tracks that don't exist
+    const validTracks = tracks.filter(track => {
+      try {
+        return fs.existsSync(track);
+      } catch (error) {
+        return false;
+      }
+    });
+
+    const playlistData = {
+      tracks: validTracks,
+      metadata: {
+        name: path.basename(playlistPath),
+        path: playlistPath,
+        trackCount: validTracks.length,
+        totalTracks: tracks.length,
+        invalidTracks: tracks.length - validTracks.length
+      }
+    };
+
+    res.json({
+      message: "Playlist content loaded successfully",
+      data: playlistData
+    });
+  } catch (error) {
+    console.error("❌ Error loading playlist content:", error);
+    res.status(500).json({ error: "Failed to load playlist content" });
   }
 });
 

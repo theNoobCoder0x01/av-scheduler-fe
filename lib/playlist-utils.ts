@@ -49,6 +49,49 @@ export function parseM3uContent(content: string): string[] {
   return files;
 }
 
+export function parseM3uContentWithMetadata(content: string): Array<{path: string, title?: string, duration?: number}> {
+  const lines = content.split('\n');
+  const tracks: Array<{path: string, title?: string, duration?: number}> = [];
+  let currentTitle: string | undefined;
+  let currentDuration: number | undefined;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Skip empty lines
+    if (!line) continue;
+    
+    // Parse EXTINF lines
+    if (line.startsWith('#EXTINF:')) {
+      const match = line.match(/#EXTINF:(-?\d+),(.*)$/);
+      if (match) {
+        const duration = parseInt(match[1]);
+        currentDuration = duration >= 0 ? duration : undefined;
+        currentTitle = match[2] || undefined;
+      }
+      continue;
+    }
+    
+    // Skip other comments
+    if (line.startsWith('#')) {
+      continue;
+    }
+    
+    // This should be a file path
+    tracks.push({
+      path: line,
+      title: currentTitle,
+      duration: currentDuration
+    });
+    
+    // Reset for next track
+    currentTitle = undefined;
+    currentDuration = undefined;
+  }
+  
+  return tracks;
+}
+
 /**
  * Generates possible M3U filenames for events with slash-separated tithi names
  * For "12 Sud Chaudas/Punam", it returns:
@@ -91,6 +134,73 @@ export function generatePlaylistFilenames(eventName: string): string[] {
     // No slash, return single filename
     return [`${cleanName}.m3u`];
   }
+}
+
+/**
+ * Validates M3U playlist content
+ */
+export function validateM3uContent(content: string): {
+  isValid: boolean;
+  errors: string[];
+  trackCount: number;
+} {
+  const errors: string[] = [];
+  let trackCount = 0;
+  
+  if (!content.trim()) {
+    errors.push("Playlist content is empty");
+    return { isValid: false, errors, trackCount: 0 };
+  }
+  
+  const lines = content.split('\n');
+  let hasHeader = false;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    if (!line) continue;
+    
+    if (line === '#EXTM3U') {
+      hasHeader = true;
+      continue;
+    }
+    
+    if (line.startsWith('#EXTINF:')) {
+      // Validate EXTINF format
+      const match = line.match(/#EXTINF:(-?\d+),(.*)$/);
+      if (!match) {
+        errors.push(`Invalid EXTINF format at line ${i + 1}: ${line}`);
+      }
+      continue;
+    }
+    
+    if (line.startsWith('#')) {
+      // Other comments are allowed
+      continue;
+    }
+    
+    // This should be a file path
+    trackCount++;
+    
+    // Basic path validation
+    if (line.includes('..')) {
+      errors.push(`Potentially unsafe path at line ${i + 1}: ${line}`);
+    }
+  }
+  
+  if (!hasHeader) {
+    errors.push("Missing #EXTM3U header");
+  }
+  
+  if (trackCount === 0) {
+    errors.push("No tracks found in playlist");
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    trackCount
+  };
 }
 
 /**

@@ -31,6 +31,15 @@ export interface CreatePlaylistResponse {
   message: string;
 }
 
+export interface PlaylistContent {
+  tracks: string[];
+  metadata: {
+    name: string;
+    path: string;
+    trackCount: number;
+  };
+}
+
 export class PlaylistService {
   static async getAllPlaylists(): Promise<{
     playlists: PlaylistInfo[];
@@ -71,6 +80,32 @@ export class PlaylistService {
       return response;
     } catch (error) {
       throw new Error("Failed to create playlist");
+    }
+  }
+
+  static async loadPlaylistContent(playlistPath: string): Promise<PlaylistContent> {
+    try {
+      const { data: response } = await axios.get(
+        `${API_BASE_URL}/playlists/content/${encodeURIComponent(playlistPath)}`
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error("Failed to load playlist content");
+    }
+  }
+
+  static isPlaylistFile(filePath: string): boolean {
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    return ext === 'm3u' || ext === 'm3u8' || ext === 'pls';
+  }
+
+  static getPlaylistType(filePath: string): 'M3U' | 'M3U8' | 'PLS' | 'Unknown' {
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'm3u': return 'M3U';
+      case 'm3u8': return 'M3U8';
+      case 'pls': return 'PLS';
+      default: return 'Unknown';
     }
   }
 }

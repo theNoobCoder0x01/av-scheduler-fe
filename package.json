@@ -12,6 +12,7 @@
     "compression": "maximum",
     "files": [
       "dist/api-server/**",
+      "dist/lib/**",
       "dist/models/**",
       "dist/main.js",
       "dist/preload.js",
@@ -44,7 +45,14 @@
     "dev:api-only": "npm run api:dev",
     "dev:web-only": "npm run dev",
     "electron:dev": "cross-env NODE_ENV=development electron .",
-    "electron:build": "rm -rf dist && next build && rm -rf dist && tsc && npm run api:build && electron-builder --mac --arm64 --x64"
+    "electron:build": "npm run build:clean && npm run build:static && npm run build:electron && npm run build:package",
+    "electron:build-win": "npm run build:clean && npm run build:static && npm run build:electron && electron-builder --win",
+    "electron:build-linux": "npm run build:clean && npm run build:static && npm run build:electron && electron-builder --linux",
+    "build:clean": "rm -rf dist out .next",
+    "build:static": "next build",
+    "build:electron": "tsc && npm run api:build",
+    "build:package": "electron-builder --mac --arm64 --x64",
+    "test:routing": "node scripts/test-routing.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

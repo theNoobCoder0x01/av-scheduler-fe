@@ -5,6 +5,7 @@ import { ICalendarEvent } from "../../models/calendar-event.model";
 import { ActionType } from "../../models/scheduled-action.model";
 import { CalendarEventsService } from "../services/calendar-events.service";
 import { getSettings } from "./settings";
+import { broadcast } from "./web-socket";
 
 let vlcProcess: ChildProcess | null = null;
 let currentPlaylist: string | null = null;
@@ -272,7 +273,7 @@ async function playPlaylistBuiltIn(
   playlistName: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log("Playing playlist with built-in player: " + playlistName);
+    console.log("🎵 Playing playlist with built-in player:", playlistName);
 
     if (!playlistName) {
       return {
@@ -294,27 +295,60 @@ async function playPlaylistBuiltIn(
       };
     }
 
+    console.log("🎵 Found playlist file:", filePath);
+
     let globalObject = global as any;
 
-    // Signal Electron to open media player window
-    // This will be handled by the main process
+    // Signal Electron to open media player window with auto-play
     if (globalObject.electronAPI) {
-      globalObject.electronAPI.openMediaPlayer(filePath);
-      return {
-        success: true,
-        message: `Opening built-in player with playlist: ${path.basename(filePath)}`,
-      };
-    } else {
-      return {
-        success: false,
-        message: "Built-in player is not available in this environment",
-      };
+      console.log("🎵 Opening media player via Electron API");
+      globalObject.electronAPI.openMediaPlayer(filePath, true); // true for auto-play
     }
+    
+    // Also broadcast to any existing media player windows
+    console.log("🎵 Broadcasting loadAndPlay command via WebSocket");
+    broadcast({
+      type: "mediaPlayerCommand",
+      command: "loadAndPlay",
+      data: {
+        playlistPath: filePath,
+        autoPlay: true
+      }
+    });
+    
+    return {
+      success: true,
+      message: `Opening built-in player with playlist: ${path.basename(filePath)}`,
+    };
   } catch (error) {
-    console.error("Error in playPlaylistBuiltIn:", error);
+    console.error("❌ Error in playPlaylistBuiltIn:", error);
     return {
       success: false,
       message: `Failed to play playlist with built-in player: ${(error as Error).message}`,
+    };
+  }
+}
+
+async function pauseBuiltIn(): Promise<{ success: boolean; message: string }> {
+  try {
+    console.log("⏸️ Sending pause command to built-in player");
+    
+    // Broadcast pause command to all media player windows
+    broadcast({
+      type: "mediaPlayerCommand",
+      command: "pause",
+      data: {}
+    });
+    
+    return {
+      success: true,
+      message: "Pause command sent to built-in player",
+    };
+  } catch (error) {
+    console.error("❌ Error pausing built-in player:", error);
+    return {
+      success: false,
+      message: `Failed to pause built-in player: ${(error as Error).message}`,
     };
   }
 }
@@ -338,6 +372,37 @@ async function pauseVlc(): Promise<{ success: boolean; message: string }> {
     return {
       success: false,
       message: `Failed to pause playback: ${(error as Error).message}`,
+    };
+  }
+}
+
+async function stopBuiltIn(): Promise<{ success: boolean; message: string }> {
+  try {
+    console.log("⏹️ Sending stop command to built-in player");
+    
+    // Broadcast stop command to all media player windows
+    broadcast({
+      type: "mediaPlayerCommand",
+      command: "stop",
+      data: {}
+    });
+    
+    // Also signal Electron to close media player windows
+    let globalObject = global as any;
+    if (globalObject.electronAPI) {
+      console.log("🔒 Closing media player windows via Electron API");
+      globalObject.electronAPI.closeMediaPlayer();
+    }
+    
+    return {
+      success: true,
+      message: "Stop command sent to built-in player and windows closed",
+    };
+  } catch (error) {
+    console.error("❌ Error stopping built-in player:", error);
+    return {
+      success: false,
+      message: `Failed to stop built-in player: ${(error as Error).message}`,
     };
   }
 }
@@ -391,7 +456,7 @@ export async function controlVlc(
   playlistName?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log("Playlist name: " + `${!playlistName}`);
+    console.log("🎮 Controlling media with action:", action, "for playlist:", playlistName);
 
     // For daily actions, we need to find the current event
     if (!playlistName) {
@@ -407,13 +472,13 @@ export async function controlVlc(
       console.log("Playlist name by current event: " + playlistName);
     }
 
-    console.log("Controlling media with action: " + action);
+    console.log("🎮 Final playlist name:", playlistName);
 
     // Get settings to determine player mode
     const settings = getSettings();
     const playerMode = settings.playerMode || 'vlc';
 
-    console.log("Using player mode: " + playerMode);
+    console.log("🎮 Using player mode:", playerMode);
 
     switch (action) {
       case "play":
@@ -424,23 +489,13 @@ export async function controlVlc(
         }
       case "pause":
         if (playerMode === 'built-in') {
-          // For built-in player, we could send a WebSocket message to pause
-          // For now, return a message indicating the action
-          return {
-            success: true,
-            message: "Pause command sent to built-in player",
-          };
+          return await pauseBuiltIn();
         } else {
           return await pauseVlc();
         }
       case "stop":
         if (playerMode === 'built-in') {
-          // For built-in player, we could send a WebSocket message to stop
-          // For now, return a message indicating the action
-          return {
-            success: true,
-            message: "Stop command sent to built-in player",
-          };
+          return await stopBuiltIn();
         } else {
           return await stopVlc({ killProcess: true });
         }
@@ -451,7 +506,7 @@ export async function controlVlc(
         };
     }
   } catch (error: Error | any) {
-    console.error("Error controlling media:" + error);
+    console.error("❌ Error controlling media:", error);
 
     return {
       success: false,

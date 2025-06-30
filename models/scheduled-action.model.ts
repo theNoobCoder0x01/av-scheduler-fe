@@ -5,7 +5,7 @@ export interface ScheduledAction {
   eventId?: string;
   eventName?: string;
   actionType: ActionType;
-  time: string; // 24-hour format HH:MM
+  time: string; // 24-hour format HH:MM:SS (now supports seconds)
   date?: Date;
   isDaily: boolean;
   lastRun?: number;

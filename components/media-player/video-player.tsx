@@ -26,9 +26,15 @@ interface VideoPlayerProps {
   tracks: string[];
   initialTrackIndex?: number;
   onTrackChange?: (track: string, index: number) => void;
+  autoPlay?: boolean;
 }
 
-export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChange }: VideoPlayerProps) {
+export default function VideoPlayer({ 
+  tracks, 
+  initialTrackIndex = 0, 
+  onTrackChange,
+  autoPlay = false 
+}: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -67,11 +73,30 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
     }
   }, [tracks, initialTrackIndex]);
 
+  // Auto-play when autoPlay prop changes
+  useEffect(() => {
+    if (autoPlay && tracks.length > 0 && !playerState.isPlaying) {
+      // Small delay to ensure track is loaded
+      setTimeout(() => {
+        play();
+      }, 500);
+    }
+  }, [autoPlay, tracks]);
+
   // WebSocket listener for remote control
   useEffect(() => {
     const handlePlayerCommand = (data: any) => {
       if (data.type === "playerCommand") {
         handleRemoteCommand(data.command, data.data);
+      } else if (data.type === "mediaPlayerCommand") {
+        switch (data.command) {
+          case "pause":
+            pause();
+            break;
+          case "stop":
+            stop();
+            break;
+        }
       }
     };
 
@@ -487,6 +512,9 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
               <div className="text-white text-center z-10">
                 <div className="text-lg font-semibold mb-2">🎵 Audio Playing</div>
                 <div className="text-sm opacity-75">{currentTrackName}</div>
+                {autoPlay && (
+                  <div className="text-xs opacity-75 mt-1">▶️ Auto-playing from scheduler</div>
+                )}
               </div>
               {/* Animated bars for audio visualization */}
               <div className="absolute bottom-0 left-0 right-0 flex items-end justify-center space-x-1 h-8 opacity-30">
@@ -518,6 +546,7 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
                     <h3 className="font-semibold truncate text-sm @lg:text-base">{currentTrackName}</h3>
                     <p className="text-xs @lg:text-sm opacity-75">
                       Track {playerState.currentIndex + 1} of {tracks.length}
+                      {autoPlay && " • Auto-playing from scheduler"}
                     </p>
                   </div>
                   {isFullscreen && (
@@ -694,6 +723,7 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
                       <div className="text-sm font-medium truncate">{currentTrackName}</div>
                       <div className="text-xs opacity-75">
                         {playerState.currentIndex + 1} / {tracks.length}
+                        {autoPlay && " • Auto-playing"}
                       </div>
                     </div>
 
@@ -792,6 +822,7 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
                 <div className="font-medium text-sm truncate">{currentTrackName}</div>
                 <div className="text-xs text-muted-foreground">
                   Track {playerState.currentIndex + 1} of {tracks.length}
+                  {autoPlay && " • Auto-playing from scheduler"}
                 </div>
               </div>
               
@@ -863,6 +894,7 @@ export default function VideoPlayer({ tracks, initialTrackIndex = 0, onTrackChan
             <p><strong>Show Controls:</strong> {showControls ? 'Yes' : 'No'}</p>
             <p><strong>Container Width:</strong> Use browser dev tools to see @container queries</p>
             <p><strong>Fullscreen:</strong> {isFullscreen ? 'Yes' : 'No'}</p>
+            <p><strong>Auto Play:</strong> {autoPlay ? 'Yes' : 'No'}</p>
           </div>
         )}
       </CardContent>
