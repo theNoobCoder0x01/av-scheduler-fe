@@ -3,10 +3,10 @@
 import EventList from "@/components/event-list";
 import FileUploader from "@/components/file-uploader";
 import ScheduleCreator from "@/components/schedule-creator";
-import MediaAndPlaylistsContainer from "@/components/media-player/media-and-playlists-container";
+import PlaylistCreator from "@/components/media-player/playlist-creator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppSelector } from "@/lib/store/hooks";
-import { Calendar, Clock, FileMusic, Music } from "lucide-react";
+import { Calendar, Clock, FileMusic } from "lucide-react";
 import { useState } from "react";
 
 export default function MainView() {
@@ -26,9 +26,9 @@ export default function MainView() {
             <Calendar className="h-4 w-4" />
             Events
           </TabsTrigger>
-          <TabsTrigger value="media" className="flex items-center gap-2">
-            <Music className="h-4 w-4" />
-            Media & Playlists
+          <TabsTrigger value="playlists" className="flex items-center gap-2">
+            <FileMusic className="h-4 w-4" />
+            Playlists
           </TabsTrigger>
           <TabsTrigger value="schedule" disabled={events.length === 0} className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
@@ -43,8 +43,13 @@ export default function MainView() {
           </div>
         </TabsContent>
         
-        <TabsContent value="media" className="mt-6">
-          <MediaAndPlaylistsContainer events={events} />
+        <TabsContent value="playlists" className="mt-6">
+          <PlaylistCreator 
+            events={events} 
+            onPlaylistCreated={(playlistPath) => {
+              console.log("Playlist created:", playlistPath);
+            }}
+          />
         </TabsContent>
         
         <TabsContent value="schedule" className="mt-6">

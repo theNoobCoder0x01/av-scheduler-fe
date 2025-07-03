@@ -8,7 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Clock, Github, HelpCircle, Settings } from "lucide-react";
+import { Clock, Github, HelpCircle, Settings, Play } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -40,6 +40,15 @@ export default function Header() {
     return () => clearInterval(timer);
   }, []);
 
+  const handleOpenMediaPlayer = () => {
+    if (typeof window !== "undefined" && window.electron?.openMediaPlayer) {
+      window.electron.openMediaPlayer();
+    } else {
+      // Fallback for web environment - open in new tab
+      window.open("/media-player", "_blank");
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-3 max-w-6xl mx-auto">
@@ -61,6 +70,19 @@ export default function Header() {
               </TooltipTrigger>
               <TooltipContent>
                 <p>Epoch: {epochTimestamp}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={handleOpenMediaPlayer}>
+                  <Play className="h-[1.2rem] w-[1.2rem]" />
+                  <span className="sr-only">Open Media Player</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Open Media Player</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

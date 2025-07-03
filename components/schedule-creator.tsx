@@ -46,6 +46,7 @@ import {
   Square,
   Trash2,
   XCircle,
+  ExternalLink,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -327,6 +328,15 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     }
   };
 
+  const handleOpenMediaPlayer = () => {
+    if (typeof window !== "undefined" && window.electron?.openMediaPlayer) {
+      window.electron.openMediaPlayer();
+    } else {
+      // Fallback for web environment - open in new tab
+      window.open("/media-player", "_blank");
+    }
+  };
+
   const renderPlaylistStatus = (action: ScheduledActionWithPlaylist) => {
     if (action.actionType !== "play" || !action.eventName) {
       return <span className="text-muted-foreground">-</span>;
@@ -451,6 +461,10 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
             <div className="flex items-center justify-between">
               <div>Schedule Media Actions</div>
               <div className="flex items-center space-x-2">
+                <Button onClick={handleOpenMediaPlayer} variant="outline" size="sm">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open Media Player
+                </Button>
                 <Button onClick={handleReloadAction} size="icon">
                   <RefreshCw className="h-4 w-4" />
                 </Button>
