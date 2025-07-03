@@ -136,6 +136,15 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     fetchSchedules();
   }, [fetchSchedules]);
 
+  const handleOpenMediaPlayer = () => {
+    if (typeof window !== "undefined" && window.electron?.openMediaPlayer) {
+      window.electron.openMediaPlayer();
+    } else {
+      // Fallback for web environment - open in new tab
+      window.open("/media-player", "_blank");
+    }
+  };
+
   const handleAddAction = async () => {
     try {
       if (!actionTime) {
@@ -328,15 +337,6 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     }
   };
 
-  const handleOpenMediaPlayer = () => {
-    if (typeof window !== "undefined" && window.electron?.openMediaPlayer) {
-      window.electron.openMediaPlayer();
-    } else {
-      // Fallback for web environment - open in new tab
-      window.open("/media-player", "_blank");
-    }
-  };
-
   const renderPlaylistStatus = (action: ScheduledActionWithPlaylist) => {
     if (action.actionType !== "play" || !action.eventName) {
       return <span className="text-muted-foreground">-</span>;
@@ -521,19 +521,19 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                     <SelectItem value="play">
                       <div className="flex items-center">
                         <Play className="mr-2 h-4 w-4" />
-                        <span>Play</span>
+                        <span>Start</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="pause">
                       <div className="flex items-center">
                         <Pause className="mr-2 h-4 w-4" />
-                        <span>Pause</span>
+                        <span>Play/Pause</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="stop">
                       <div className="flex items-center">
                         <Square className="mr-2 h-4 w-4" />
-                        <span>Stop</span>
+                        <span>Close</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -623,8 +623,10 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                         {action.actionType === "stop" && (
                           <Square className="mr-2 h-4 w-4 text-red-500" />
                         )}
-                        {action.actionType.charAt(0).toUpperCase() +
-                          action.actionType.slice(1)}
+                        {/* Display the new action names in the table */}
+                        {action.actionType === "play" && "Start"}
+                        {action.actionType === "pause" && "Play/Pause"}
+                        {action.actionType === "stop" && "Close"}
                       </span>
                     </TableCell>
                     <TableCell>
