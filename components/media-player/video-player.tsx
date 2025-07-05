@@ -18,7 +18,7 @@ import {
   SkipBack,
   SkipForward,
   Volume2,
-  VolumeX
+  VolumeX,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -29,11 +29,11 @@ interface VideoPlayerProps {
   autoPlay?: boolean;
 }
 
-export default function VideoPlayer({ 
-  tracks, 
-  initialTrackIndex = 0, 
+export default function VideoPlayer({
+  tracks,
+  initialTrackIndex = 0,
   onTrackChange,
-  autoPlay = false 
+  autoPlay = false,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -46,8 +46,8 @@ export default function VideoPlayer({
     currentTrack: null,
     playlist: tracks,
     currentIndex: initialTrackIndex,
-    repeat: 'none',
-    shuffle: false
+    repeat: "none",
+    shuffle: false,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -55,19 +55,21 @@ export default function VideoPlayer({
   const [retryCount, setRetryCount] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
-  const [controlsTimeout, setControlsTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [mediaType, setMediaType] = useState<'audio' | 'video'>('video');
+  const [controlsTimeout, setControlsTimeout] = useState<NodeJS.Timeout | null>(
+    null,
+  );
+  const [mediaType, setMediaType] = useState<"audio" | "video">("video");
   const [isHovering, setIsHovering] = useState(false);
 
   // Initialize player
   useEffect(() => {
     if (tracks.length > 0) {
       const initialTrack = tracks[initialTrackIndex];
-      setPlayerState(prev => ({
+      setPlayerState((prev) => ({
         ...prev,
         playlist: tracks,
         currentIndex: initialTrackIndex,
-        currentTrack: initialTrack
+        currentTrack: initialTrack,
       }));
       loadTrack(initialTrack);
     }
@@ -108,9 +110,9 @@ export default function VideoPlayer({
   useEffect(() => {
     const hideControls = () => {
       if (controlsTimeout) clearTimeout(controlsTimeout);
-      
+
       // Only hide if not hovering and playing
-      if (!isHovering && playerState.isPlaying && mediaType === 'video') {
+      if (!isHovering && playerState.isPlaying && mediaType === "video") {
         const timeout = setTimeout(() => {
           setShowControls(false);
         }, 3000); // Hide after 3 seconds
@@ -123,27 +125,31 @@ export default function VideoPlayer({
       hideControls();
     };
 
-    if (mediaType === 'video') {
+    if (mediaType === "video") {
       // Show controls on mouse move
       const container = containerRef.current;
       if (container) {
-        container.addEventListener('mousemove', showControlsHandler);
-        container.addEventListener('mouseenter', () => {
+        container.addEventListener("mousemove", showControlsHandler);
+        container.addEventListener("mouseenter", () => {
           setIsHovering(true);
           setShowControls(true);
         });
-        container.addEventListener('mouseleave', () => {
+        container.addEventListener("mouseleave", () => {
           setIsHovering(false);
           hideControls();
         });
-        
+
         // Initial hide timer
         hideControls();
 
         return () => {
-          container.removeEventListener('mousemove', showControlsHandler);
-          container.removeEventListener('mouseenter', () => setIsHovering(true));
-          container.removeEventListener('mouseleave', () => setIsHovering(false));
+          container.removeEventListener("mousemove", showControlsHandler);
+          container.removeEventListener("mouseenter", () =>
+            setIsHovering(true),
+          );
+          container.removeEventListener("mouseleave", () =>
+            setIsHovering(false),
+          );
           if (controlsTimeout) clearTimeout(controlsTimeout);
         };
       }
@@ -154,72 +160,87 @@ export default function VideoPlayer({
     }
   }, [isHovering, playerState.isPlaying, mediaType, controlsTimeout]);
 
-  const detectMediaType = useCallback((filePath: string): 'audio' | 'video' => {
-    const ext = filePath.split('.').pop()?.toLowerCase() || '';
-    const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'wmv', 'flv', '3gp', 'm4v'];
-    return videoExtensions.includes(ext) ? 'video' : 'audio';
+  const detectMediaType = useCallback((filePath: string): "audio" | "video" => {
+    const ext = filePath.split(".").pop()?.toLowerCase() || "";
+    const videoExtensions = [
+      "mp4",
+      "webm",
+      "ogg",
+      "mov",
+      "avi",
+      "mkv",
+      "wmv",
+      "flv",
+      "3gp",
+      "m4v",
+    ];
+    return videoExtensions.includes(ext) ? "video" : "audio";
   }, []);
 
-  const loadTrack = useCallback(async (trackPath: string) => {
-    if (!videoRef.current) return;
+  const loadTrack = useCallback(
+    async (trackPath: string) => {
+      if (!videoRef.current) return;
 
-    setIsLoading(true);
-    setLoadError(null);
-    setRetryCount(0);
-    
-    try {
-      console.log("🎵 Loading track:", trackPath);
-      
-      // Detect media type
-      const detectedType = detectMediaType(trackPath);
-      setMediaType(detectedType);
-      
-      // Validate media file first
-      const isValid = await MediaService.validateMediaFile(trackPath);
-      if (!isValid) {
-        throw new Error("File is not a valid media file");
+      setIsLoading(true);
+      setLoadError(null);
+      setRetryCount(0);
+
+      try {
+        console.log("🎵 Loading track:", trackPath);
+
+        // Detect media type
+        const detectedType = detectMediaType(trackPath);
+        setMediaType(detectedType);
+
+        // Validate media file first
+        const isValid = await MediaService.validateMediaFile(trackPath);
+        if (!isValid) {
+          throw new Error("File is not a valid media file");
+        }
+
+        // Test if the stream URL is accessible
+        const isAccessible = await MediaService.testStreamUrl(trackPath);
+        if (!isAccessible) {
+          throw new Error("Media file is not accessible for streaming");
+        }
+
+        const streamUrl = MediaService.getStreamUrl(trackPath);
+        console.log("🔗 Stream URL:", streamUrl);
+
+        // Reset video element
+        videoRef.current.pause();
+        videoRef.current.currentTime = 0;
+
+        // Set new source with error handling
+        videoRef.current.src = streamUrl;
+        videoRef.current.load();
+
+        onTrackChange?.(trackPath, playerState.currentIndex);
+
+        toast({
+          title: "Track loaded",
+          description: `Loading: ${trackPath.split("/").pop()}`,
+        });
+      } catch (error) {
+        console.error("❌ Error loading track:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to load track";
+        setLoadError(errorMessage);
+        toast({
+          title: "Error loading track",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
-      
-      // Test if the stream URL is accessible
-      const isAccessible = await MediaService.testStreamUrl(trackPath);
-      if (!isAccessible) {
-        throw new Error("Media file is not accessible for streaming");
-      }
-      
-      const streamUrl = MediaService.getStreamUrl(trackPath);
-      console.log("🔗 Stream URL:", streamUrl);
-      
-      // Reset video element
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-      
-      // Set new source with error handling
-      videoRef.current.src = streamUrl;
-      videoRef.current.load();
-      
-      onTrackChange?.(trackPath, playerState.currentIndex);
-      
-      toast({
-        title: "Track loaded",
-        description: `Loading: ${trackPath.split('/').pop()}`,
-      });
-    } catch (error) {
-      console.error("❌ Error loading track:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to load track";
-      setLoadError(errorMessage);
-      toast({
-        title: "Error loading track",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [playerState.currentIndex, onTrackChange, toast, detectMediaType]);
+    },
+    [playerState.currentIndex, onTrackChange, toast, detectMediaType],
+  );
 
   const retryLoadTrack = useCallback(() => {
     if (playerState.currentTrack && retryCount < 3) {
-      setRetryCount(prev => prev + 1);
+      setRetryCount((prev) => prev + 1);
       console.log(`🔄 Retrying track load (attempt ${retryCount + 1})`);
       loadTrack(playerState.currentTrack);
     }
@@ -257,7 +278,7 @@ export default function VideoPlayer({
 
   const play = useCallback(async () => {
     if (!videoRef.current) return;
-    
+
     try {
       await videoRef.current.play();
       const newState = { ...playerState, isPlaying: true };
@@ -269,7 +290,8 @@ export default function VideoPlayer({
       setLoadError("Failed to play media");
       toast({
         title: "Playback error",
-        description: "Failed to play media. The file may be corrupted or unsupported.",
+        description:
+          "Failed to play media. The file may be corrupted or unsupported.",
         variant: "destructive",
       });
     }
@@ -277,7 +299,7 @@ export default function VideoPlayer({
 
   const pause = useCallback(() => {
     if (!videoRef.current) return;
-    
+
     videoRef.current.pause();
     const newState = { ...playerState, isPlaying: false };
     setPlayerState(newState);
@@ -286,7 +308,7 @@ export default function VideoPlayer({
 
   const stop = useCallback(() => {
     if (!videoRef.current) return;
-    
+
     videoRef.current.pause();
     videoRef.current.currentTime = 0;
     const newState = { ...playerState, isPlaying: false, currentTime: 0 };
@@ -294,20 +316,23 @@ export default function VideoPlayer({
     PlayerService.updateState(newState);
   }, [playerState]);
 
-  const seek = useCallback((time: number) => {
-    if (!videoRef.current || !isFinite(time)) return;
-    
-    const clampedTime = Math.max(0, Math.min(time, playerState.duration));
-    videoRef.current.currentTime = clampedTime;
-    setPlayerState(prev => ({ ...prev, currentTime: clampedTime }));
-  }, [playerState.duration]);
+  const seek = useCallback(
+    (time: number) => {
+      if (!videoRef.current || !isFinite(time)) return;
+
+      const clampedTime = Math.max(0, Math.min(time, playerState.duration));
+      videoRef.current.currentTime = clampedTime;
+      setPlayerState((prev) => ({ ...prev, currentTime: clampedTime }));
+    },
+    [playerState.duration],
+  );
 
   const setVolume = useCallback((volume: number) => {
     if (!videoRef.current) return;
-    
+
     const clampedVolume = Math.max(0, Math.min(1, volume));
     videoRef.current.volume = clampedVolume;
-    setPlayerState(prev => ({ ...prev, volume: clampedVolume }));
+    setPlayerState((prev) => ({ ...prev, volume: clampedVolume }));
     setIsMuted(clampedVolume === 0);
   }, []);
 
@@ -319,7 +344,7 @@ export default function VideoPlayer({
         ...playerState,
         currentIndex: nextIndex,
         currentTrack: nextTrack,
-        currentTime: 0
+        currentTime: 0,
       };
       setPlayerState(newState);
       loadTrack(nextTrack);
@@ -335,7 +360,7 @@ export default function VideoPlayer({
         ...playerState,
         currentIndex: prevIndex,
         currentTrack: prevTrack,
-        currentTime: 0
+        currentTime: 0,
       };
       setPlayerState(newState);
       loadTrack(prevTrack);
@@ -344,14 +369,14 @@ export default function VideoPlayer({
   }, [playerState, tracks, loadTrack]);
 
   const toggleRepeat = useCallback(() => {
-    const modes: Array<'none' | 'one' | 'all'> = ['none', 'one', 'all'];
+    const modes: Array<"none" | "one" | "all"> = ["none", "one", "all"];
     const currentIndex = modes.indexOf(playerState.repeat);
     const newRepeat = modes[(currentIndex + 1) % modes.length];
-    setPlayerState(prev => ({ ...prev, repeat: newRepeat }));
+    setPlayerState((prev) => ({ ...prev, repeat: newRepeat }));
   }, [playerState.repeat]);
 
   const toggleShuffle = useCallback(() => {
-    setPlayerState(prev => ({ ...prev, shuffle: !prev.shuffle }));
+    setPlayerState((prev) => ({ ...prev, shuffle: !prev.shuffle }));
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -379,19 +404,19 @@ export default function VideoPlayer({
   // Video event handlers
   const handleTimeUpdate = useCallback(() => {
     if (!videoRef.current) return;
-    
+
     const currentTime = videoRef.current.currentTime;
     if (isFinite(currentTime)) {
-      setPlayerState(prev => ({ ...prev, currentTime }));
+      setPlayerState((prev) => ({ ...prev, currentTime }));
     }
   }, []);
 
   const handleLoadedMetadata = useCallback(() => {
     if (!videoRef.current) return;
-    
+
     const duration = videoRef.current.duration;
     if (isFinite(duration)) {
-      setPlayerState(prev => ({ ...prev, duration }));
+      setPlayerState((prev) => ({ ...prev, duration }));
       console.log("✅ Track loaded successfully, duration:", duration);
     }
   }, []);
@@ -402,63 +427,69 @@ export default function VideoPlayer({
     setRetryCount(0);
   }, []);
 
-  const handleError = useCallback((e: any) => {
-    console.error("❌ Video error:", e);
-    const error = videoRef.current?.error;
-    let errorMessage = "Unknown playback error";
-    
-    if (error) {
-      switch (error.code) {
-        case error.MEDIA_ERR_ABORTED:
-          errorMessage = "Playback was aborted";
-          break;
-        case error.MEDIA_ERR_NETWORK:
-          errorMessage = "Network error while loading media";
-          break;
-        case error.MEDIA_ERR_DECODE:
-          errorMessage = "Media decode error - file may be corrupted";
-          break;
-        case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
-          errorMessage = "Media format not supported by browser";
-          break;
+  const handleError = useCallback(
+    (e: any) => {
+      console.error("❌ Video error:", e);
+      const error = videoRef.current?.error;
+      let errorMessage = "Unknown playback error";
+
+      if (error) {
+        switch (error.code) {
+          case error.MEDIA_ERR_ABORTED:
+            errorMessage = "Playback was aborted";
+            break;
+          case error.MEDIA_ERR_NETWORK:
+            errorMessage = "Network error while loading media";
+            break;
+          case error.MEDIA_ERR_DECODE:
+            errorMessage = "Media decode error - file may be corrupted";
+            break;
+          case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorMessage = "Media format not supported by browser";
+            break;
+        }
       }
-    }
-    
-    setLoadError(errorMessage);
-    
-    if (error?.code !== error?.MEDIA_ERR_NETWORK || playerState.isPlaying) {
-      toast({
-        title: "Playback error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    }
-  }, [toast, playerState.isPlaying]);
+
+      setLoadError(errorMessage);
+
+      if (error?.code !== error?.MEDIA_ERR_NETWORK || playerState.isPlaying) {
+        toast({
+          title: "Playback error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    },
+    [toast, playerState.isPlaying],
+  );
 
   const handleEnded = useCallback(() => {
-    if (playerState.repeat === 'one') {
+    if (playerState.repeat === "one") {
       if (videoRef.current) {
         videoRef.current.currentTime = 0;
         videoRef.current.play();
       }
-    } else if (playerState.repeat === 'all' || playerState.currentIndex < tracks.length - 1) {
+    } else if (
+      playerState.repeat === "all" ||
+      playerState.currentIndex < tracks.length - 1
+    ) {
       const nextIndex = playerState.currentIndex + 1;
       if (nextIndex < tracks.length) {
         nextTrack();
-      } else if (playerState.repeat === 'all') {
+      } else if (playerState.repeat === "all") {
         const firstTrack = tracks[0];
         const newState = {
           ...playerState,
           currentIndex: 0,
           currentTrack: firstTrack,
-          currentTime: 0
+          currentTime: 0,
         };
         setPlayerState(newState);
         loadTrack(firstTrack);
         PlayerService.updateState(newState);
       }
     } else {
-      setPlayerState(prev => ({ ...prev, isPlaying: false }));
+      setPlayerState((prev) => ({ ...prev, isPlaying: false }));
     }
   }, [playerState, tracks, nextTrack, loadTrack]);
 
@@ -467,28 +498,32 @@ export default function VideoPlayer({
   }, []);
 
   useEffect(() => {
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, [handleFullscreenChange]);
 
   const formatTime = (seconds: number) => {
     if (!isFinite(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const currentTrackName = playerState.currentTrack 
-    ? playerState.currentTrack.split('/').pop()?.replace(/\.[^/.]+$/, "") || "Unknown Track"
+  const currentTrackName = playerState.currentTrack
+    ? playerState.currentTrack
+        .split("/")
+        .pop()
+        ?.replace(/\.[^/.]+$/, "") || "Unknown Track"
     : "No Track";
 
   return (
     <Card className="w-full">
       <CardContent className="p-0 relative">
-        <div 
+        <div
           ref={containerRef}
-          className={`relative group @container ${isFullscreen ? 'fixed inset-0 z-50 bg-black' : ''}`}
-          style={{ containerType: 'inline-size' }}
+          className={`relative group @container ${isFullscreen ? "fixed inset-0 z-50 bg-black" : ""}`}
+          style={{ containerType: "inline-size" }}
         >
           <video
             ref={videoRef}
@@ -499,21 +534,25 @@ export default function VideoPlayer({
             onEnded={handleEnded}
             preload="metadata"
             crossOrigin="anonymous"
-            className={`w-full ${mediaType === 'video' ? 'aspect-video' : 'h-16'} bg-black cursor-pointer`}
-            style={{ display: mediaType === 'audio' ? 'none' : 'block' }}
+            className={`w-full ${mediaType === "video" ? "aspect-video" : "h-16"} bg-black cursor-pointer`}
+            style={{ display: mediaType === "audio" ? "none" : "block" }}
             controls={false}
-            onClick={() => playerState.isPlaying ? pause() : play()}
+            onClick={() => (playerState.isPlaying ? pause() : play())}
           />
-          
+
           {/* Audio visualization for audio files */}
-          {mediaType === 'audio' && (
+          {mediaType === "audio" && (
             <div className="w-full h-32 bg-gradient-to-r from-blue-500 via-purple-600 to-pink-500 flex items-center justify-center relative overflow-hidden">
               <div className="absolute inset-0 bg-black/20"></div>
               <div className="text-white text-center z-10">
-                <div className="text-lg font-semibold mb-2">🎵 Audio Playing</div>
+                <div className="text-lg font-semibold mb-2">
+                  🎵 Audio Playing
+                </div>
                 <div className="text-sm opacity-75">{currentTrackName}</div>
                 {autoPlay && (
-                  <div className="text-xs opacity-75 mt-1">▶️ Auto-playing from scheduler</div>
+                  <div className="text-xs opacity-75 mt-1">
+                    ▶️ Auto-playing from scheduler
+                  </div>
                 )}
               </div>
               {/* Animated bars for audio visualization */}
@@ -525,7 +564,7 @@ export default function VideoPlayer({
                     style={{
                       height: `${Math.random() * 100}%`,
                       animationDelay: `${i * 0.1}s`,
-                      animationDuration: `${0.5 + Math.random() * 0.5}s`
+                      animationDuration: `${0.5 + Math.random() * 0.5}s`,
                     }}
                   />
                 ))}
@@ -534,16 +573,19 @@ export default function VideoPlayer({
           )}
 
           {/* Responsive Controls Overlay */}
-          <div className={`absolute inset-0 transition-opacity duration-300 ${
-            showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}>
-            
+          <div
+            className={`absolute inset-0 transition-opacity duration-300 ${
+              showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
+          >
             {/* Top Info Bar (only in fullscreen or large containers) */}
             {(isFullscreen || true) && (
               <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/60 to-transparent p-2 @lg:p-4">
                 <div className="flex items-center justify-between text-white">
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold truncate text-sm @lg:text-base">{currentTrackName}</h3>
+                    <h3 className="font-semibold truncate text-sm @lg:text-base">
+                      {currentTrackName}
+                    </h3>
                     <p className="text-xs @lg:text-sm opacity-75">
                       Track {playerState.currentIndex + 1} of {tracks.length}
                       {autoPlay && " • Auto-playing from scheduler"}
@@ -570,9 +612,9 @@ export default function VideoPlayer({
                 onClick={playerState.isPlaying ? pause : play}
                 disabled={isLoading || (loadError !== null && retryCount >= 3)}
                 className="bg-black/50 hover:bg-black/70 text-white border-white/20 rounded-full backdrop-blur-sm h-12 w-12 @md:h-16 @md:w-16"
-                style={{ 
+                style={{
                   opacity: playerState.isPlaying ? 0 : 1,
-                  transition: 'opacity 0.3s ease'
+                  transition: "opacity 0.3s ease",
                 }}
               >
                 {isLoading ? (
@@ -585,11 +627,12 @@ export default function VideoPlayer({
 
             {/* Bottom Controls - Responsive Layout */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-              
               {/* Progress Bar */}
               <div className="px-2 @md:px-4 pt-2 @md:pt-4 pb-1 @md:pb-2">
                 <div className="flex items-center space-x-1 @md:space-x-2 text-white text-xs">
-                  <span className="min-w-[30px] @md:min-w-[35px] text-xs">{formatTime(playerState.currentTime)}</span>
+                  <span className="min-w-[30px] @md:min-w-[35px] text-xs">
+                    {formatTime(playerState.currentTime)}
+                  </span>
                   <Slider
                     value={[playerState.currentTime]}
                     max={playerState.duration || 100}
@@ -598,13 +641,14 @@ export default function VideoPlayer({
                     className="flex-1"
                     disabled={!playerState.duration || loadError !== null}
                   />
-                  <span className="min-w-[30px] @md:min-w-[35px] text-xs">{formatTime(playerState.duration)}</span>
+                  <span className="min-w-[30px] @md:min-w-[35px] text-xs">
+                    {formatTime(playerState.duration)}
+                  </span>
                 </div>
               </div>
 
               {/* Control Buttons - Responsive Layout */}
               <div className="px-2 @md:px-4 pb-2 @md:pb-4">
-                
                 {/* Small Container Layout (< 400px) */}
                 <div className="@container-normal:hidden">
                   {/* Compact single row for very small containers */}
@@ -619,12 +663,14 @@ export default function VideoPlayer({
                       >
                         <SkipBack className="h-3 w-3" />
                       </Button>
-                      
+
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={playerState.isPlaying ? pause : play}
-                        disabled={isLoading || (loadError !== null && retryCount >= 3)}
+                        disabled={
+                          isLoading || (loadError !== null && retryCount >= 3)
+                        }
                         className="text-white hover:bg-white/20 h-7 w-7"
                       >
                         {isLoading ? (
@@ -635,12 +681,14 @@ export default function VideoPlayer({
                           <Play className="h-3 w-3" />
                         )}
                       </Button>
-                      
+
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={nextTrack}
-                        disabled={playerState.currentIndex === tracks.length - 1}
+                        disabled={
+                          playerState.currentIndex === tracks.length - 1
+                        }
                         className="text-white hover:bg-white/20 h-7 w-7"
                       >
                         <SkipForward className="h-3 w-3" />
@@ -648,9 +696,9 @@ export default function VideoPlayer({
                     </div>
 
                     <div className="flex items-center space-x-1">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={toggleMute}
                         className="text-white hover:bg-white/20 h-7 w-7"
                       >
@@ -660,8 +708,8 @@ export default function VideoPlayer({
                           <Volume2 className="h-3 w-3" />
                         )}
                       </Button>
-                      
-                      {mediaType === 'video' && !isFullscreen && (
+
+                      {mediaType === "video" && !isFullscreen && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -678,7 +726,6 @@ export default function VideoPlayer({
                 {/* Medium+ Container Layout (>= 400px) */}
                 <div className="hidden @container-normal:block">
                   <div className="flex items-center justify-between">
-                    
                     {/* Left Controls */}
                     <div className="flex items-center space-x-1 @lg:space-x-2">
                       <Button
@@ -690,12 +737,14 @@ export default function VideoPlayer({
                       >
                         <SkipBack className="h-4 w-4" />
                       </Button>
-                      
+
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={playerState.isPlaying ? pause : play}
-                        disabled={isLoading || (loadError !== null && retryCount >= 3)}
+                        disabled={
+                          isLoading || (loadError !== null && retryCount >= 3)
+                        }
                         className="text-white hover:bg-white/20 h-8 w-8"
                       >
                         {isLoading ? (
@@ -706,12 +755,14 @@ export default function VideoPlayer({
                           <Play className="h-4 w-4" />
                         )}
                       </Button>
-                      
+
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={nextTrack}
-                        disabled={playerState.currentIndex === tracks.length - 1}
+                        disabled={
+                          playerState.currentIndex === tracks.length - 1
+                        }
                         className="text-white hover:bg-white/20 h-8 w-8"
                       >
                         <SkipForward className="h-4 w-4" />
@@ -720,7 +771,9 @@ export default function VideoPlayer({
 
                     {/* Center Info (hidden on small, shown on medium+) */}
                     <div className="hidden @lg:block text-center text-white flex-1 mx-4">
-                      <div className="text-sm font-medium truncate">{currentTrackName}</div>
+                      <div className="text-sm font-medium truncate">
+                        {currentTrackName}
+                      </div>
                       <div className="text-xs opacity-75">
                         {playerState.currentIndex + 1} / {tracks.length}
                         {autoPlay && " • Auto-playing"}
@@ -737,14 +790,14 @@ export default function VideoPlayer({
                       >
                         <Shuffle className="h-3 w-3" />
                       </Button>
-                      
+
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={toggleRepeat}
-                        className={`text-white hover:bg-white/20 h-8 w-8 ${playerState.repeat !== 'none' ? "text-blue-400" : ""}`}
+                        className={`text-white hover:bg-white/20 h-8 w-8 ${playerState.repeat !== "none" ? "text-blue-400" : ""}`}
                       >
-                        {playerState.repeat === 'one' ? (
+                        {playerState.repeat === "one" ? (
                           <Repeat1 className="h-3 w-3" />
                         ) : (
                           <Repeat className="h-3 w-3" />
@@ -753,9 +806,9 @@ export default function VideoPlayer({
 
                       {/* Volume Control */}
                       <div className="flex items-center space-x-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={toggleMute}
                           className="text-white hover:bg-white/20 h-8 w-8"
                         >
@@ -776,7 +829,7 @@ export default function VideoPlayer({
                         </div>
                       </div>
 
-                      {mediaType === 'video' && !isFullscreen && (
+                      {mediaType === "video" && !isFullscreen && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -814,18 +867,20 @@ export default function VideoPlayer({
         </div>
 
         {/* External Controls for Small Video Players */}
-        {mediaType === 'video' && !isFullscreen && (
+        {mediaType === "video" && !isFullscreen && (
           <div className="@container-normal:hidden p-4 bg-muted/50">
             <div className="space-y-3">
               {/* Track Info */}
               <div className="text-center">
-                <div className="font-medium text-sm truncate">{currentTrackName}</div>
+                <div className="font-medium text-sm truncate">
+                  {currentTrackName}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   Track {playerState.currentIndex + 1} of {tracks.length}
                   {autoPlay && " • Auto-playing from scheduler"}
                 </div>
               </div>
-              
+
               {/* Extended Controls */}
               <div className="flex items-center justify-center space-x-4">
                 <Button
@@ -836,14 +891,16 @@ export default function VideoPlayer({
                 >
                   <Shuffle className="h-4 w-4" />
                 </Button>
-                
+
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={toggleRepeat}
-                  className={playerState.repeat !== 'none' ? "text-blue-500" : ""}
+                  className={
+                    playerState.repeat !== "none" ? "text-blue-500" : ""
+                  }
                 >
-                  {playerState.repeat === 'one' ? (
+                  {playerState.repeat === "one" ? (
                     <Repeat1 className="h-4 w-4" />
                   ) : (
                     <Repeat className="h-4 w-4" />
@@ -852,11 +909,7 @@ export default function VideoPlayer({
 
                 {/* Volume Control */}
                 <div className="flex items-center space-x-2 flex-1 max-w-32">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={toggleMute}
-                  >
+                  <Button variant="ghost" size="icon" onClick={toggleMute}>
                     {isMuted || playerState.volume === 0 ? (
                       <VolumeX className="h-4 w-4" />
                     ) : (
@@ -875,11 +928,7 @@ export default function VideoPlayer({
                   </span>
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleFullscreen}
-                >
+                <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
                   <Maximize className="h-4 w-4" />
                 </Button>
               </div>
@@ -888,13 +937,24 @@ export default function VideoPlayer({
         )}
 
         {/* Debug Info (development only) */}
-        {process.env.NODE_ENV === 'development' && !isFullscreen && (
+        {process.env.NODE_ENV === "development" && !isFullscreen && (
           <div className="mt-4 p-2 bg-muted rounded text-xs">
-            <p><strong>Media Type:</strong> {mediaType}</p>
-            <p><strong>Show Controls:</strong> {showControls ? 'Yes' : 'No'}</p>
-            <p><strong>Container Width:</strong> Use browser dev tools to see @container queries</p>
-            <p><strong>Fullscreen:</strong> {isFullscreen ? 'Yes' : 'No'}</p>
-            <p><strong>Auto Play:</strong> {autoPlay ? 'Yes' : 'No'}</p>
+            <p>
+              <strong>Media Type:</strong> {mediaType}
+            </p>
+            <p>
+              <strong>Show Controls:</strong> {showControls ? "Yes" : "No"}
+            </p>
+            <p>
+              <strong>Container Width:</strong> Use browser dev tools to see
+              @container queries
+            </p>
+            <p>
+              <strong>Fullscreen:</strong> {isFullscreen ? "Yes" : "No"}
+            </p>
+            <p>
+              <strong>Auto Play:</strong> {autoPlay ? "Yes" : "No"}
+            </p>
           </div>
         )}
       </CardContent>

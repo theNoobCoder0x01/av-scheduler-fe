@@ -8,7 +8,7 @@ export class CalendarEventService {
   static async getAllCalendarEvents(): Promise<ICalendarEvent[]> {
     try {
       const { status, data: response } = await axios.get(
-        `${API_BASE_URL}/calendar-events`
+        `${API_BASE_URL}/calendar-events`,
       );
 
       if (status !== 200) {
@@ -35,7 +35,7 @@ export class CalendarEventService {
   static async getCalendarEventById(id: string): Promise<ICalendarEvent> {
     try {
       const { status, data: response } = await axios.get(
-        `${API_BASE_URL}/calendar-events/${id}`
+        `${API_BASE_URL}/calendar-events/${id}`,
       );
 
       if (status !== 200) {
@@ -49,12 +49,12 @@ export class CalendarEventService {
   }
 
   static async createCalendarEvents(
-    calendarEvents: Omit<ICalendarEvent, "id">[]
+    calendarEvents: Omit<ICalendarEvent, "id">[],
   ): Promise<ICalendarEvent[]> {
     try {
       const { status, data: response } = await axios.post(
         `${API_BASE_URL}/calendar-events`,
-        calendarEvents
+        calendarEvents,
       );
 
       if (status !== 201) {
@@ -69,12 +69,12 @@ export class CalendarEventService {
 
   static async updateCalendarEvent(
     id: string,
-    calendarEvent: Partial<ICalendarEvent>
+    calendarEvent: Partial<ICalendarEvent>,
   ): Promise<ICalendarEvent> {
     try {
       const { status, data: response } = await axios.put(
         `${API_BASE_URL}/calendar-events/${id}`,
-        calendarEvent
+        calendarEvent,
       );
 
       if (status !== 200) {
@@ -101,7 +101,7 @@ export class CalendarEventService {
   static async deleteCalendarEvent(id: string): Promise<void> {
     try {
       const { status, data: response } = await axios.delete(
-        `${API_BASE_URL}/calendar-events/${id}`
+        `${API_BASE_URL}/calendar-events/${id}`,
       );
 
       if (status !== 200) {
@@ -117,7 +117,7 @@ export class CalendarEventService {
   static async deleteAllCalendarEvents(): Promise<void> {
     try {
       const { status, data: response } = await axios.delete(
-        `${API_BASE_URL}/calendar-events/all`
+        `${API_BASE_URL}/calendar-events/all`,
       );
 
       if (status !== 200) {

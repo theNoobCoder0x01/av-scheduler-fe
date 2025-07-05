@@ -72,28 +72,33 @@ class ActionScheduler {
     const hours = parseInt(timeParts[0]);
     const minutes = parseInt(timeParts[1]);
     const seconds = timeParts.length > 2 ? parseInt(timeParts[2]) : 0;
-    
+
     const scheduleId = `daily-${action.actionType}-${action.time}`;
     const now = new Date();
     const scheduledTime = new Date(now);
-    
+
     // Set the exact time with seconds precision
     scheduledTime.setHours(hours, minutes, seconds, 0);
-    
+
     if (scheduledTime.getTime() < now.getTime()) {
       scheduledTime.setDate(scheduledTime.getDate() + 1);
     }
-    
+
     const initialDelay = scheduledTime.getTime() - now.getTime();
-    
-    console.log(`⏰ Scheduling daily action "${action.actionType}" for ${action.time} (${hours}:${minutes}:${seconds})`);
+
+    console.log(
+      `⏰ Scheduling daily action "${action.actionType}" for ${action.time} (${hours}:${minutes}:${seconds})`,
+    );
     console.log(`⏰ Initial delay: ${Math.round(initialDelay / 1000)} seconds`);
-    
+
     setTimeout(() => {
       this.executeAction(action);
-      const interval = setInterval(() => {
-        this.executeAction(action);
-      }, 24 * 60 * 60 * 1000);
+      const interval = setInterval(
+        () => {
+          this.executeAction(action);
+        },
+        24 * 60 * 60 * 1000,
+      );
       this.dailySchedules.set(scheduleId, interval);
     }, initialDelay);
   }

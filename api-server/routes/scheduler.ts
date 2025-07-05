@@ -1,6 +1,6 @@
 import express from "express";
-import { SchedulerService } from "../services/scheduler.service";
 import { controlVlc } from "../lib/vlc-controller";
+import { SchedulerService } from "../services/scheduler.service";
 
 const schedulerRoutes = express.Router();
 
@@ -23,7 +23,7 @@ schedulerRoutes.get("/", async (req, res) => {
 schedulerRoutes.get("/:id", async (req, res) => {
   try {
     const scheduledAction = await SchedulerService.getScheduledActionById(
-      parseInt(req.params.id ?? "")
+      parseInt(req.params.id ?? ""),
     );
     res.status(200).json({
       message: "Scheduled action fetched successfully",
@@ -76,7 +76,9 @@ schedulerRoutes.post("/execute/:id", async (req, res) => {
       return;
     }
 
-    console.log(`🎯 Manually executing scheduled action ${actionId}: ${actionType} for ${eventName || 'current event'}`);
+    console.log(
+      `🎯 Manually executing scheduled action ${actionId}: ${actionType} for ${eventName || "current event"}`,
+    );
 
     // Execute the action using the same logic as the scheduler
     const result = await controlVlc(actionType, eventName);
@@ -112,7 +114,7 @@ schedulerRoutes.put("/:id", async (req, res) => {
   try {
     const updatedRow = await SchedulerService.updateScheduledAction(
       parseInt(req.params.id ?? ""),
-      req.body
+      req.body,
     );
 
     res.status(200).json({
@@ -132,7 +134,7 @@ schedulerRoutes.patch("/:id", async (req, res) => {
   try {
     const updatedRow = await SchedulerService.patchScheduledAction(
       parseInt(req.params.id ?? ""),
-      req.body
+      req.body,
     );
 
     res.status(200).json({
@@ -151,7 +153,7 @@ schedulerRoutes.patch("/:id", async (req, res) => {
 schedulerRoutes.delete("/:id", async (req, res) => {
   try {
     const dbResponse = await SchedulerService.deleteScheduledAction(
-      parseInt(req.params.id ?? "")
+      parseInt(req.params.id ?? ""),
     );
 
     // Send response

@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082/api";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082/api";
 
 export interface FileItem {
   name: string;
@@ -34,7 +35,10 @@ export class FileBrowserService {
   static async browseDirectory(path?: string): Promise<DirectoryContents> {
     try {
       const params = path ? { path } : {};
-      const { data: response } = await axios.get(`${API_BASE_URL}/files/browse`, { params });
+      const { data: response } = await axios.get(
+        `${API_BASE_URL}/files/browse`,
+        { params },
+      );
       return response.data;
     } catch (error) {
       throw new Error("Failed to browse directory");
@@ -43,18 +47,27 @@ export class FileBrowserService {
 
   static async getSystemDrives(): Promise<SystemDrive[]> {
     try {
-      const { data: response } = await axios.get(`${API_BASE_URL}/files/drives`);
+      const { data: response } = await axios.get(
+        `${API_BASE_URL}/files/drives`,
+      );
       return response.data;
     } catch (error) {
       throw new Error("Failed to get system drives");
     }
   }
 
-  static async searchFiles(searchPath: string, query: string, mediaOnly = false): Promise<SearchResult> {
+  static async searchFiles(
+    searchPath: string,
+    query: string,
+    mediaOnly = false,
+  ): Promise<SearchResult> {
     try {
-      const { data: response } = await axios.get(`${API_BASE_URL}/files/search`, {
-        params: { path: searchPath, q: query, mediaOnly }
-      });
+      const { data: response } = await axios.get(
+        `${API_BASE_URL}/files/search`,
+        {
+          params: { path: searchPath, q: query, mediaOnly },
+        },
+      );
       return response.data;
     } catch (error) {
       throw new Error("Failed to search files");

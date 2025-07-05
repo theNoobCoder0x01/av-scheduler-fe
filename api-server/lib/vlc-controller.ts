@@ -48,12 +48,12 @@ function isVlcRunning(): Promise<boolean> {
 }
 
 async function sendHttpCommand(
-  command: string
+  command: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log("Sending HTTP command to VLC: " + command);
     const auth = Buffer.from(`:${VLC_HTTP_PASSWORD}`).toString("base64");
-    
+
     const response = await axios.get(
       `http://${VLC_HTTP_HOST}:${VLC_HTTP_PORT}/requests/status.json?command=${command}`,
       {
@@ -61,7 +61,7 @@ async function sendHttpCommand(
           Authorization: `Basic ${auth}`,
         },
         timeout: 5000, // 5 second timeout
-      }
+      },
     );
 
     return {
@@ -81,7 +81,7 @@ async function sendHttpCommand(
  * Generates possible M3U filenames for events with slash-separated tithi names
  * For "12 Sud Chaudas/Punam", it returns:
  * 1. "12 Sud Chaudas.m3u" (first part)
- * 2. "12 Sud Punam.m3u" (second part)  
+ * 2. "12 Sud Punam.m3u" (second part)
  * 3. "12 Sud Chaudas/Punam.m3u" (original with slash)
  */
 function generatePlaylistFilenames(eventName: string): string[] {
@@ -89,30 +89,34 @@ function generatePlaylistFilenames(eventName: string): string[] {
 
   // Clean the event name for file system compatibility
   const cleanName = eventName.replace(/[<>:"|?*]/g, "_");
-  
+
   // Check if the event name contains a slash
-  if (cleanName.includes('/')) {
+  if (cleanName.includes("/")) {
     const filenames: string[] = [];
-    
+
     // Extract the prefix (everything before the last space before the slash)
-    const slashIndex = cleanName.indexOf('/');
+    const slashIndex = cleanName.indexOf("/");
     const beforeSlash = cleanName.substring(0, slashIndex);
     const afterSlash = cleanName.substring(slashIndex + 1);
-    
+
     // Find the last space before the slash to get the prefix
-    const lastSpaceIndex = beforeSlash.lastIndexOf(' ');
-    const prefix = lastSpaceIndex !== -1 ? beforeSlash.substring(0, lastSpaceIndex + 1) : '';
-    const firstTithi = lastSpaceIndex !== -1 ? beforeSlash.substring(lastSpaceIndex + 1) : beforeSlash;
-    
+    const lastSpaceIndex = beforeSlash.lastIndexOf(" ");
+    const prefix =
+      lastSpaceIndex !== -1 ? beforeSlash.substring(0, lastSpaceIndex + 1) : "";
+    const firstTithi =
+      lastSpaceIndex !== -1
+        ? beforeSlash.substring(lastSpaceIndex + 1)
+        : beforeSlash;
+
     // 1. First tithi: "12 Sud Chaudas.m3u"
     filenames.push(`${prefix}${firstTithi}.m3u`);
-    
+
     // 2. Second tithi: "12 Sud Punam.m3u"
     filenames.push(`${prefix}${afterSlash.trim()}.m3u`);
-    
+
     // 3. Original with slash: "12 Sud Chaudas/Punam.m3u"
     filenames.push(`${cleanName}.m3u`);
-    
+
     return filenames;
   } else {
     // No slash, return single filename
@@ -125,7 +129,7 @@ function generatePlaylistFilenames(eventName: string): string[] {
  */
 function fileExists(filePath: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const fs = require('fs');
+    const fs = require("fs");
     fs.access(filePath, fs.constants.F_OK, (err: any) => {
       resolve(!err);
     });
@@ -135,15 +139,18 @@ function fileExists(filePath: string): Promise<boolean> {
 /**
  * Finds the first existing playlist file from possible filenames
  */
-async function findPlaylistFile(playlistName: string, playlistFolderPath: string): Promise<string | null> {
+async function findPlaylistFile(
+  playlistName: string,
+  playlistFolderPath: string,
+): Promise<string | null> {
   const possibleFilenames = generatePlaylistFilenames(playlistName);
-  
+
   console.log(`Looking for playlist files for "${playlistName}":`);
-  
+
   for (const filename of possibleFilenames) {
     const filePath = path.join(playlistFolderPath, filename);
     console.log(`  Checking: ${filePath}`);
-    
+
     if (await fileExists(filePath)) {
       console.log(`  ✓ Found: ${filePath}`);
       return filePath;
@@ -151,13 +158,13 @@ async function findPlaylistFile(playlistName: string, playlistFolderPath: string
       console.log(`  ✗ Not found: ${filePath}`);
     }
   }
-  
+
   console.log(`  No playlist file found for "${playlistName}"`);
   return null;
 }
 
 async function playPlaylistVLC(
-  playlistName: string
+  playlistName: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log("Playing playlist with VLC: " + playlistName);
@@ -170,15 +177,18 @@ async function playPlaylistVLC(
     }
 
     const settings = getSettings();
-    
+
     // Find the first existing playlist file
-    const filePath = await findPlaylistFile(playlistName, settings.playlistFolderPath);
-    
+    const filePath = await findPlaylistFile(
+      playlistName,
+      settings.playlistFolderPath,
+    );
+
     if (!filePath) {
       const possibleFilenames = generatePlaylistFilenames(playlistName);
       return {
         success: false,
-        message: `No playlist file found for "${playlistName}". Tried: ${possibleFilenames.join(', ')}`,
+        message: `No playlist file found for "${playlistName}". Tried: ${possibleFilenames.join(", ")}`,
       };
     }
 
@@ -229,7 +239,7 @@ async function playPlaylistVLC(
         console.log("VLC is already running, sending HTTP command");
         // If VLC is running, use HTTP command to load playlist
         return await sendHttpCommand(
-          `in_play&input=${encodeURIComponent(filePath)}`
+          `in_play&input=${encodeURIComponent(filePath)}`,
         );
       }
     } else {
@@ -270,7 +280,7 @@ async function playPlaylistVLC(
 }
 
 async function playPlaylistBuiltIn(
-  playlistName: string
+  playlistName: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log("🎵 Playing playlist with built-in player:", playlistName);
@@ -283,15 +293,18 @@ async function playPlaylistBuiltIn(
     }
 
     const settings = getSettings();
-    
+
     // Find the first existing playlist file
-    const filePath = await findPlaylistFile(playlistName, settings.playlistFolderPath);
-    
+    const filePath = await findPlaylistFile(
+      playlistName,
+      settings.playlistFolderPath,
+    );
+
     if (!filePath) {
       const possibleFilenames = generatePlaylistFilenames(playlistName);
       return {
         success: false,
-        message: `No playlist file found for "${playlistName}". Tried: ${possibleFilenames.join(', ')}`,
+        message: `No playlist file found for "${playlistName}". Tried: ${possibleFilenames.join(", ")}`,
       };
     }
 
@@ -304,7 +317,7 @@ async function playPlaylistBuiltIn(
       console.log("🎵 Opening media player via Electron API");
       globalObject.electronAPI.openMediaPlayer(filePath, true); // true for auto-play
     }
-    
+
     // Also broadcast to any existing media player windows
     console.log("🎵 Broadcasting loadAndPlay command via WebSocket");
     broadcast({
@@ -312,10 +325,10 @@ async function playPlaylistBuiltIn(
       command: "loadAndPlay",
       data: {
         playlistPath: filePath,
-        autoPlay: true
-      }
+        autoPlay: true,
+      },
     });
-    
+
     return {
       success: true,
       message: `Opening built-in player with playlist: ${path.basename(filePath)}`,
@@ -332,14 +345,14 @@ async function playPlaylistBuiltIn(
 async function pauseBuiltIn(): Promise<{ success: boolean; message: string }> {
   try {
     console.log("⏸️ Sending pause command to built-in player");
-    
+
     // Broadcast pause command to all media player windows
     broadcast({
       type: "mediaPlayerCommand",
       command: "pause",
-      data: {}
+      data: {},
     });
-    
+
     return {
       success: true,
       message: "Pause command sent to built-in player",
@@ -379,21 +392,21 @@ async function pauseVlc(): Promise<{ success: boolean; message: string }> {
 async function stopBuiltIn(): Promise<{ success: boolean; message: string }> {
   try {
     console.log("⏹️ Sending stop command to built-in player");
-    
+
     // Broadcast stop command to all media player windows
     broadcast({
       type: "mediaPlayerCommand",
       command: "stop",
-      data: {}
+      data: {},
     });
-    
+
     // Also signal Electron to close media player windows
     let globalObject = global as any;
     if (globalObject.electronAPI) {
       console.log("🔒 Closing media player windows via Electron API");
       globalObject.electronAPI.closeMediaPlayer();
     }
-    
+
     return {
       success: true,
       message: "Stop command sent to built-in player and windows closed",
@@ -408,7 +421,7 @@ async function stopBuiltIn(): Promise<{ success: boolean; message: string }> {
 }
 
 async function stopVlc(
-  { killProcess = false }: { killProcess: boolean } = { killProcess: false }
+  { killProcess = false }: { killProcess: boolean } = { killProcess: false },
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log("[HELP] Stopping VLC playback");
@@ -417,7 +430,7 @@ async function stopVlc(
     console.log("[HELP] VLC process: ", vlcProcess);
     console.log(
       "[HELP] Will try to quit app: ",
-      killProcess || !USE_HTTP_INTERFACE
+      killProcess || !USE_HTTP_INTERFACE,
     );
 
     let httpRes;
@@ -453,10 +466,15 @@ async function stopVlc(
 
 export async function controlVlc(
   action: ActionType,
-  playlistName?: string
+  playlistName?: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log("🎮 Controlling media with action:", action, "for playlist:", playlistName);
+    console.log(
+      "🎮 Controlling media with action:",
+      action,
+      "for playlist:",
+      playlistName,
+    );
 
     // For daily actions, we need to find the current event
     if (!playlistName) {
@@ -476,25 +494,25 @@ export async function controlVlc(
 
     // Get settings to determine player mode
     const settings = getSettings();
-    const playerMode = settings.playerMode || 'vlc';
+    const playerMode = settings.playerMode || "vlc";
 
     console.log("🎮 Using player mode:", playerMode);
 
     switch (action) {
       case "play":
-        if (playerMode === 'built-in') {
+        if (playerMode === "built-in") {
           return await playPlaylistBuiltIn(playlistName || "");
         } else {
           return await playPlaylistVLC(playlistName || "");
         }
       case "pause":
-        if (playerMode === 'built-in') {
+        if (playerMode === "built-in") {
           return await pauseBuiltIn();
         } else {
           return await pauseVlc();
         }
       case "stop":
-        if (playerMode === 'built-in') {
+        if (playerMode === "built-in") {
           return await stopBuiltIn();
         } else {
           return await stopVlc({ killProcess: true });

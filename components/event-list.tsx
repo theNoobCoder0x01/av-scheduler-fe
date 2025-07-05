@@ -3,13 +3,13 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { sortEventsByGujaratiTerms } from "@/lib/gujarati-calendar";
 import { useAppDispatch } from "@/lib/store/hooks";
 import { setEvents } from "@/lib/store/slices/eventsSlice";
-import { sortEventsByGujaratiTerms } from "@/lib/gujarati-calendar";
 import { ICalendarEvent } from "@/models/calendar-event.model";
 import { CalendarEventService } from "@/services/calendar-event.service";
 import { Search } from "lucide-react";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import EventCard from "./event-card";
 
 interface EventListProps {
@@ -34,7 +34,7 @@ export default function EventList({ events }: EventListProps) {
       (event) =>
         event.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        event.location?.toLowerCase().includes(searchTerm.toLowerCase())
+        event.location?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
     // Then sort: Gujarati calendar events first, then by start date
@@ -58,7 +58,7 @@ export default function EventList({ events }: EventListProps) {
 
   const handleEventUpdate = (updatedEvent: ICalendarEvent) => {
     const updatedEvents = localEvents.map((event) =>
-      event.uid === updatedEvent.uid ? updatedEvent : event
+      event.uid === updatedEvent.uid ? updatedEvent : event,
     );
     setLocalEvents(updatedEvents);
     dispatch(setEvents(updatedEvents));
@@ -73,11 +73,11 @@ export default function EventList({ events }: EventListProps) {
   const handleSaveEvents = async (uid?: string) => {
     try {
       let eventsToSave = localEvents.filter(
-        (calendarEvent) => !Boolean(calendarEvent.id?.toString()?.length)
+        (calendarEvent) => !Boolean(calendarEvent.id?.toString()?.length),
       );
       if (uid?.length) {
         eventsToSave = eventsToSave.filter(
-          (calendarEvent) => calendarEvent.uid === uid
+          (calendarEvent) => calendarEvent.uid === uid,
         );
       }
 
@@ -90,7 +90,7 @@ export default function EventList({ events }: EventListProps) {
           location: calendarEvent.location,
           uid: calendarEvent.uid,
           rawString: JSON.stringify(calendarEvent),
-        }))
+        })),
       );
 
       if (response.length > 0) {
@@ -140,7 +140,7 @@ export default function EventList({ events }: EventListProps) {
 
   const hasUnsavedEvents = localEvents.some(
     (calendarEvent: ICalendarEvent) =>
-      !Boolean(calendarEvent.id?.toString()?.length)
+      !Boolean(calendarEvent.id?.toString()?.length),
   );
 
   return (
@@ -171,8 +171,8 @@ export default function EventList({ events }: EventListProps) {
       {/* Display sorting information */}
       {sortedAndFilteredEvents.length > 0 && (
         <div className="text-sm text-muted-foreground">
-          Showing {sortedAndFilteredEvents.length} events 
-          (Gujarati calendar events shown first, then sorted by date)
+          Showing {sortedAndFilteredEvents.length} events (Gujarati calendar
+          events shown first, then sorted by date)
         </div>
       )}
 

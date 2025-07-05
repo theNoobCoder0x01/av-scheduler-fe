@@ -21,12 +21,7 @@
       "@/*": ["./*"]
     }
   },
-  "include": [
-    "api-server/**/*",
-    "models/**/*",
-    "main.ts",
-    "preload.ts"
-  ],
+  "include": ["api-server/**/*", "models/**/*", "main.ts", "preload.ts"],
   "exclude": [
     "node_modules",
     "dist",

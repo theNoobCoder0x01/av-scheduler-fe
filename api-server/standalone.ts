@@ -1,29 +1,30 @@
 import cors from "cors";
 import express from "express";
 import { createServer, Server } from "http";
-import path from "path";
 import { WebSocketServer } from "ws";
+import { initializeDB } from "./lib/db";
 import { setupWebSocket } from "./lib/web-socket";
 import calendarEventsRouter from "./routes/calender-events";
+import fileBrowserRouter from "./routes/file-browser";
+import mediaRouter from "./routes/media";
+import playerControlRouter from "./routes/player-control";
+import playlistsRouter from "./routes/playlists";
 import schedulerRoutes from "./routes/scheduler";
 import settingsRouter from "./routes/settings";
-import playlistsRouter from "./routes/playlists";
-import mediaRouter from "./routes/media";
-import fileBrowserRouter from "./routes/file-browser";
-import playerControlRouter from "./routes/player-control";
-import { initializeDB } from "./lib/db";
 
 const app = express();
 const apiServer: Server = createServer(app);
 const PORT = 8082;
 
 // Middleware
-app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001"],
-  credentials: true
-}));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://localhost:3001"],
+    credentials: true,
+  }),
+);
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // API Routes
 app.use("/api/scheduler", schedulerRoutes);
@@ -36,10 +37,10 @@ app.use("/api/player", playerControlRouter);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "ok", 
+  res.json({
+    status: "ok",
     timestamp: new Date().toISOString(),
-    message: "BAPS Music Scheduler API is running"
+    message: "BAPS Music Scheduler API is running",
   });
 });
 
@@ -57,20 +58,27 @@ app.get("/", (req, res) => {
       playlists: "/api/playlists",
       media: "/api/media",
       files: "/api/files",
-      player: "/api/player"
-    }
+      player: "/api/player",
+    },
   });
 });
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("API Error:", err);
-  res.status(500).json({
-    error: "Internal server error",
-    message: err.message,
-    timestamp: new Date().toISOString()
-  });
-});
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    console.error("API Error:", err);
+    res.status(500).json({
+      error: "Internal server error",
+      message: err.message,
+      timestamp: new Date().toISOString(),
+    });
+  },
+);
 
 // 404 handler
 app.use((req, res) => {
@@ -78,7 +86,7 @@ app.use((req, res) => {
     error: "Not found",
     path: req.path,
     method: req.method,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -94,7 +102,9 @@ export const startStandaloneServer = async () => {
 
     // Start server
     apiServer.listen(PORT, () => {
-      console.log(`🚀 BAPS Music Scheduler API Server running at http://localhost:${PORT}`);
+      console.log(
+        `🚀 BAPS Music Scheduler API Server running at http://localhost:${PORT}`,
+      );
       console.log(`📋 API endpoints available at http://localhost:${PORT}/api`);
       console.log(`🎵 Media streaming at http://localhost:${PORT}/api/media`);
       console.log(`📁 File browser at http://localhost:${PORT}/api/files`);
@@ -117,10 +127,10 @@ export const startStandaloneServer = async () => {
         console.log("🔄 Shutdown already in progress...");
         return;
       }
-      
+
       isShuttingDown = true;
       console.log(`🛑 ${signal} received, shutting down gracefully...`);
-      
+
       // Close WebSocket server first
       if (webSocketServer) {
         console.log("📡 Closing WebSocket server...");
@@ -128,7 +138,7 @@ export const startStandaloneServer = async () => {
           console.log("✅ WebSocket server closed");
         });
       }
-      
+
       // Close HTTP server
       console.log("🌐 Closing HTTP server...");
       apiServer.close((err) => {
@@ -141,7 +151,7 @@ export const startStandaloneServer = async () => {
           process.exit(0);
         }
       });
-      
+
       // Force exit after 10 seconds if graceful shutdown fails
       setTimeout(() => {
         console.log("⚠️  Forcing shutdown after timeout");
@@ -150,20 +160,20 @@ export const startStandaloneServer = async () => {
     };
 
     // Handle different termination signals
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-    process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // nodemon restart
-    
+    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+    process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+    process.on("SIGUSR2", () => gracefulShutdown("SIGUSR2")); // nodemon restart
+
     // Handle uncaught exceptions
-    process.on('uncaughtException', (error) => {
+    process.on("uncaughtException", (error) => {
       console.error("❌ Uncaught Exception:", error);
-      gracefulShutdown('UNCAUGHT_EXCEPTION');
+      gracefulShutdown("UNCAUGHT_EXCEPTION");
     });
-    
+
     // Handle unhandled promise rejections
-    process.on('unhandledRejection', (reason, promise) => {
+    process.on("unhandledRejection", (reason, promise) => {
       console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
-      gracefulShutdown('UNHANDLED_REJECTION');
+      gracefulShutdown("UNHANDLED_REJECTION");
     });
 
     return {
@@ -181,16 +191,20 @@ if (require.main === module) {
   console.log("🚀 Starting BAPS Music Scheduler API Server...");
   console.log("📍 Environment: Development");
   console.log("");
-  
-  startStandaloneServer().then(() => {
-    console.log("");
-    console.log("✅ API Server is ready!");
-    console.log("💡 You can now run 'npm run dev' in another terminal for the frontend");
-    console.log("🔗 Full app will be available at: http://localhost:3000");
-    console.log("🛑 Press Ctrl+C to stop the server");
-    console.log("");
-  }).catch((error) => {
-    console.error("❌ Failed to start server:", error);
-    process.exit(1);
-  });
+
+  startStandaloneServer()
+    .then(() => {
+      console.log("");
+      console.log("✅ API Server is ready!");
+      console.log(
+        "💡 You can now run 'npm run dev' in another terminal for the frontend",
+      );
+      console.log("🔗 Full app will be available at: http://localhost:3000");
+      console.log("🛑 Press Ctrl+C to stop the server");
+      console.log("");
+    })
+    .catch((error) => {
+      console.error("❌ Failed to start server:", error);
+      process.exit(1);
+    });
 }

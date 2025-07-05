@@ -1,6 +1,5 @@
 import express from "express";
 import { execute, query } from "../lib/db";
-import { format } from "date-fns";
 
 const calendarEventsRouter = express.Router();
 
@@ -8,7 +7,7 @@ const calendarEventsRouter = express.Router();
 calendarEventsRouter.get("/", async (req, res) => {
   try {
     const dbResponse = await query(
-      `SELECT * FROM calendar_events ce ORDER BY ce.start, ce.end`
+      `SELECT * FROM calendar_events ce ORDER BY ce.start, ce.end`,
     );
     res.status(200).json({
       message: "Calendar events fetched successfully",
@@ -78,7 +77,7 @@ calendarEventsRouter.post("/", async (req, res) => {
         item.description,
         item.location,
         item.uid,
-        item.rawString
+        item.rawString,
       );
     });
 
@@ -88,14 +87,14 @@ calendarEventsRouter.post("/", async (req, res) => {
             (summary, start, end, description, location, uid, raw_string)
             ${valuesString}
             `,
-      valuesArray
+      valuesArray,
     );
 
     const newRows = await query(
       `SELECT * FROM calendar_events WHERE uid in (${data
         .map(() => "?")
         .join(",")})`,
-      data.map((calendarEvent: any) => calendarEvent?.uid)
+      data.map((calendarEvent: any) => calendarEvent?.uid),
     );
 
     res.status(201).json({
@@ -135,12 +134,12 @@ calendarEventsRouter.put("/:id", async (req, res) => {
         data.rawString || JSON.stringify(data),
         Math.floor(new Date().getTime() / 1000),
         calendarEventId,
-      ]
+      ],
     );
 
     const [updatedRow] = await query(
       `SELECT * FROM calendar_events WHERE id = ?`,
-      [calendarEventId]
+      [calendarEventId],
     );
 
     res.status(200).json({
@@ -184,7 +183,7 @@ calendarEventsRouter.delete("/:id", async (req, res) => {
 
     const dbResponse = await execute(
       `DELETE FROM calendar_events WHERE id = ?`,
-      [calendarEventId]
+      [calendarEventId],
     );
 
     res.status(200).json({

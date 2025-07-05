@@ -15,16 +15,7 @@ import { isFullDayEvent } from "@/lib/utils";
 import { ICalendarEvent } from "@/models/calendar-event.model";
 import { CalendarEventService } from "@/services/calendar-event.service";
 import { format } from "date-fns";
-import {
-  Calendar,
-  Check,
-  Clock,
-  Edit2,
-  MapPin,
-  Save,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Calendar, Check, Clock, Edit2, MapPin, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 interface EventCardProps {
@@ -94,7 +85,7 @@ export default function EventCard({
             end: editedEvent.end,
             description: editedEvent.description,
             location: editedEvent.location,
-          }
+          },
         );
         onEventUpdate(updatedEvent);
         toast({
@@ -188,11 +179,7 @@ export default function EventCard({
                     >
                       <X className="h-3 w-3" />
                     </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSave}
-                      disabled={isLoading}
-                    >
+                    <Button size="sm" onClick={handleSave} disabled={isLoading}>
                       {isLoading ? (
                         <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
                       ) : (
@@ -236,7 +223,9 @@ export default function EventCard({
               {isEditing ? (
                 <div className="space-y-3">
                   <div>
-                    <label className="text-sm font-medium">Start Date & Time</label>
+                    <label className="text-sm font-medium">
+                      Start Date & Time
+                    </label>
                     <Input
                       type="datetime-local"
                       value={formatDateTimeForInput(editedEvent.start)}
@@ -247,7 +236,9 @@ export default function EventCard({
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">End Date & Time</label>
+                    <label className="text-sm font-medium">
+                      End Date & Time
+                    </label>
                     <Input
                       type="datetime-local"
                       value={formatDateTimeForInput(editedEvent.end)}

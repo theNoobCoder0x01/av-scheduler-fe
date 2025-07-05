@@ -10,7 +10,7 @@ export class CalendarEventsService {
       FROM calendar_events 
         WHERE start <= ? AND end >= ?
     `,
-      [now, now]
+      [now, now],
     );
 
     console.info("getCurrentCalendarEvent response", dbResponse);

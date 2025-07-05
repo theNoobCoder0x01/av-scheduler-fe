@@ -1,7 +1,7 @@
 import express from "express";
 import fs from "fs";
-import path from "path";
 import os from "os";
+import path from "path";
 
 const fileBrowserRouter = express.Router();
 
@@ -30,15 +30,26 @@ fileBrowserRouter.get("/browse", (req, res) => {
       return;
     }
 
-    const items = fs.readdirSync(targetPath).map(item => {
+    const items = fs.readdirSync(targetPath).map((item) => {
       const itemPath = path.join(targetPath, item);
       const itemStat = fs.statSync(itemPath);
       const ext = path.extname(item).toLowerCase();
-      
+
       // Check if it's a media file
-      const mediaExtensions = ['.mp3', '.mp4', '.wav', '.flac', '.aac', '.ogg', '.webm', '.m4a', '.mov', '.avi'];
+      const mediaExtensions = [
+        ".mp3",
+        ".mp4",
+        ".wav",
+        ".flac",
+        ".aac",
+        ".ogg",
+        ".webm",
+        ".m4a",
+        ".mov",
+        ".avi",
+      ];
       const isMediaFile = mediaExtensions.includes(ext);
-      
+
       return {
         name: item,
         path: itemPath,
@@ -46,7 +57,7 @@ fileBrowserRouter.get("/browse", (req, res) => {
         isMediaFile,
         size: itemStat.size,
         lastModified: itemStat.mtime,
-        extension: ext
+        extension: ext,
       };
     });
 
@@ -66,8 +77,8 @@ fileBrowserRouter.get("/browse", (req, res) => {
       data: {
         currentPath: targetPath,
         parentPath: canGoUp ? parentPath : null,
-        items
-      }
+        items,
+      },
     });
   } catch (error) {
     console.error("Error browsing directory:", error);
@@ -89,7 +100,7 @@ fileBrowserRouter.get("/drives", (req, res) => {
             drives.push({
               name: `Drive ${String.fromCharCode(i)}:`,
               path: drive,
-              type: "drive"
+              type: "drive",
             });
           }
         } catch (e) {
@@ -101,16 +112,16 @@ fileBrowserRouter.get("/drives", (req, res) => {
       drives.push({
         name: "Root",
         path: "/",
-        type: "root"
+        type: "root",
       });
-      
+
       // Add common mount points
       const commonPaths = [
         { name: "Home", path: os.homedir() },
         { name: "Desktop", path: path.join(os.homedir(), "Desktop") },
         { name: "Documents", path: path.join(os.homedir(), "Documents") },
         { name: "Music", path: path.join(os.homedir(), "Music") },
-        { name: "Videos", path: path.join(os.homedir(), "Videos") }
+        { name: "Videos", path: path.join(os.homedir(), "Videos") },
       ];
 
       commonPaths.forEach(({ name, path: dirPath }) => {
@@ -118,7 +129,7 @@ fileBrowserRouter.get("/drives", (req, res) => {
           drives.push({
             name,
             path: dirPath,
-            type: "folder"
+            type: "folder",
           });
         }
       });
@@ -126,7 +137,7 @@ fileBrowserRouter.get("/drives", (req, res) => {
 
     res.json({
       message: "System drives retrieved successfully",
-      data: drives
+      data: drives,
     });
   } catch (error) {
     console.error("Error getting system drives:", error);
@@ -160,22 +171,33 @@ fileBrowserRouter.get("/search", (req, res) => {
       lastModified: Date;
     }> = [];
 
-    const mediaExtensions = ['.mp3', '.mp4', '.wav', '.flac', '.aac', '.ogg', '.webm', '.m4a', '.mov', '.avi'];
+    const mediaExtensions = [
+      ".mp3",
+      ".mp4",
+      ".wav",
+      ".flac",
+      ".aac",
+      ".ogg",
+      ".webm",
+      ".m4a",
+      ".mov",
+      ".avi",
+    ];
 
     function searchRecursive(dirPath: string, depth = 0) {
       if (depth > 3) return; // Limit search depth
 
       try {
         const items = fs.readdirSync(dirPath);
-        
+
         for (const item of items) {
           const itemPath = path.join(dirPath, item);
           const stat = fs.statSync(itemPath);
-          
+
           if (item.toLowerCase().includes(query.toLowerCase())) {
             const ext = path.extname(item).toLowerCase();
             const isMediaFile = mediaExtensions.includes(ext);
-            
+
             if (!mediaOnly || isMediaFile || stat.isDirectory()) {
               results.push({
                 name: item,
@@ -183,11 +205,11 @@ fileBrowserRouter.get("/search", (req, res) => {
                 isDirectory: stat.isDirectory(),
                 isMediaFile,
                 size: stat.size,
-                lastModified: stat.mtime
+                lastModified: stat.mtime,
               });
             }
           }
-          
+
           if (stat.isDirectory() && results.length < 100) {
             searchRecursive(itemPath, depth + 1);
           }
@@ -204,8 +226,8 @@ fileBrowserRouter.get("/search", (req, res) => {
       data: {
         query,
         searchPath,
-        results: results.slice(0, 100) // Limit results
-      }
+        results: results.slice(0, 100), // Limit results
+      },
     });
   } catch (error) {
     console.error("Error searching files:", error);

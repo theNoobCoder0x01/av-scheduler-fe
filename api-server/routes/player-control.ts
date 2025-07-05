@@ -11,7 +11,7 @@ interface PlayerState {
   currentTrack: string | null;
   playlist: string[];
   currentIndex: number;
-  repeat: 'none' | 'one' | 'all';
+  repeat: "none" | "one" | "all";
   shuffle: boolean;
 }
 
@@ -23,15 +23,15 @@ let playerState: PlayerState = {
   currentTrack: null,
   playlist: [],
   currentIndex: -1,
-  repeat: 'none',
-  shuffle: false
+  repeat: "none",
+  shuffle: false,
 };
 
 // Get current player state
 playerControlRouter.get("/state", (req, res) => {
   res.json({
     message: "Player state retrieved successfully",
-    data: playerState
+    data: playerState,
   });
 });
 
@@ -40,16 +40,16 @@ playerControlRouter.post("/state", (req, res) => {
   try {
     const updates = req.body;
     playerState = { ...playerState, ...updates };
-    
+
     // Broadcast state change to all connected clients
     broadcast({
       type: "playerStateUpdate",
-      data: playerState
+      data: playerState,
     });
 
     res.json({
       message: "Player state updated successfully",
-      data: playerState
+      data: playerState,
     });
   } catch (error) {
     console.error("Error updating player state:", error);
@@ -86,14 +86,16 @@ playerControlRouter.post("/command", (req, res) => {
       case "next":
         if (playerState.currentIndex < playerState.playlist.length - 1) {
           playerState.currentIndex++;
-          playerState.currentTrack = playerState.playlist[playerState.currentIndex];
+          playerState.currentTrack =
+            playerState.playlist[playerState.currentIndex];
           playerState.currentTime = 0;
         }
         break;
       case "previous":
         if (playerState.currentIndex > 0) {
           playerState.currentIndex--;
-          playerState.currentTrack = playerState.playlist[playerState.currentIndex];
+          playerState.currentTrack =
+            playerState.playlist[playerState.currentIndex];
           playerState.currentTime = 0;
         }
         break;
@@ -101,7 +103,7 @@ playerControlRouter.post("/command", (req, res) => {
         playerState.shuffle = !playerState.shuffle;
         break;
       case "repeat":
-        const modes: Array<'none' | 'one' | 'all'> = ['none', 'one', 'all'];
+        const modes: Array<"none" | "one" | "all"> = ["none", "one", "all"];
         const currentIndex = modes.indexOf(playerState.repeat);
         playerState.repeat = modes[(currentIndex + 1) % modes.length];
         break;
@@ -115,12 +117,12 @@ playerControlRouter.post("/command", (req, res) => {
       type: "playerCommand",
       command,
       data,
-      playerState
+      playerState,
     });
 
     res.json({
       message: "Command executed successfully",
-      data: playerState
+      data: playerState,
     });
   } catch (error) {
     console.error("Error executing player command:", error);
@@ -139,18 +141,21 @@ playerControlRouter.post("/playlist", (req, res) => {
     }
 
     playerState.playlist = tracks;
-    playerState.currentIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
+    playerState.currentIndex = Math.max(
+      0,
+      Math.min(startIndex, tracks.length - 1),
+    );
     playerState.currentTrack = tracks[playerState.currentIndex] || null;
     playerState.currentTime = 0;
 
     broadcast({
       type: "playlistLoaded",
-      data: playerState
+      data: playerState,
     });
 
     res.json({
       message: "Playlist loaded successfully",
-      data: playerState
+      data: playerState,
     });
   } catch (error) {
     console.error("Error loading playlist:", error);

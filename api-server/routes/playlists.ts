@@ -1,8 +1,8 @@
 import express from "express";
 import fs from "fs";
 import path from "path";
-import { getSettings } from "../lib/settings";
 import { parseM3uContent } from "../../lib/playlist-utils";
+import { getSettings } from "../lib/settings";
 
 const playlistsRouter = express.Router();
 
@@ -24,14 +24,14 @@ playlistsRouter.get("/", async (req, res) => {
 
     // Read all files in the playlist folder
     const files = fs.readdirSync(playlistFolderPath);
-    
+
     // Filter for .m3u files and get their details
     const playlists = files
-      .filter(file => file.toLowerCase().endsWith('.m3u'))
-      .map(file => {
+      .filter((file) => file.toLowerCase().endsWith(".m3u"))
+      .map((file) => {
         const filePath = path.join(playlistFolderPath, file);
         const stats = fs.statSync(filePath);
-        
+
         return {
           name: file,
           nameWithoutExtension: path.parse(file).name,
@@ -62,7 +62,7 @@ playlistsRouter.get("/", async (req, res) => {
 playlistsRouter.get("/content/:encodedPath(*)", async (req, res) => {
   try {
     const encodedPath = req.params.encodedPath;
-    
+
     if (!encodedPath) {
       res.status(400).json({ error: "Playlist path is required" });
       return;
@@ -75,27 +75,27 @@ playlistsRouter.get("/content/:encodedPath(*)", async (req, res) => {
       res.status(400).json({ error: "Invalid playlist path encoding" });
       return;
     }
-    
+
     console.log("📋 Loading playlist content:", playlistPath);
-    
+
     if (!fs.existsSync(playlistPath)) {
       res.status(404).json({ error: "Playlist file not found" });
       return;
     }
 
     const ext = path.extname(playlistPath).toLowerCase();
-    
-    if (ext !== '.m3u' && ext !== '.m3u8') {
+
+    if (ext !== ".m3u" && ext !== ".m3u8") {
       res.status(400).json({ error: "Not a supported playlist file" });
       return;
     }
 
     // Read and parse the playlist file
-    const content = fs.readFileSync(playlistPath, 'utf-8');
+    const content = fs.readFileSync(playlistPath, "utf-8");
     const tracks = parseM3uContent(content);
-    
+
     // Filter out tracks that don't exist
-    const validTracks = tracks.filter(track => {
+    const validTracks = tracks.filter((track) => {
       try {
         return fs.existsSync(track);
       } catch (error) {
@@ -110,13 +110,13 @@ playlistsRouter.get("/content/:encodedPath(*)", async (req, res) => {
         path: playlistPath,
         trackCount: validTracks.length,
         totalTracks: tracks.length,
-        invalidTracks: tracks.length - validTracks.length
-      }
+        invalidTracks: tracks.length - validTracks.length,
+      },
     };
 
     res.json({
       message: "Playlist content loaded successfully",
-      data: playlistData
+      data: playlistData,
     });
   } catch (error) {
     console.error("❌ Error loading playlist content:", error);
@@ -134,9 +134,9 @@ playlistsRouter.get("/check/:name", async (req, res) => {
     // Generate possible filenames for the playlist
     const { generatePlaylistFilenames } = require("../lib/vlc-controller");
     const possibleFilenames = generatePlaylistFilenames(playlistName);
-    
+
     const foundPlaylists = [];
-    
+
     for (const filename of possibleFilenames) {
       const filePath = path.join(playlistFolderPath, filename);
       if (fs.existsSync(filePath)) {
@@ -153,7 +153,8 @@ playlistsRouter.get("/check/:name", async (req, res) => {
     }
 
     res.status(200).json({
-      message: foundPlaylists.length > 0 ? "Playlist found" : "Playlist not found",
+      message:
+        foundPlaylists.length > 0 ? "Playlist found" : "Playlist not found",
       data: foundPlaylists,
       searchedFor: playlistName,
       possibleFilenames,
@@ -191,24 +192,26 @@ playlistsRouter.post("/create", async (req, res) => {
 
     // Clean filename for file system compatibility
     const cleanName = name.replace(/[<>:"/\\|?*]/g, "_");
-    const fileName = cleanName.endsWith('.m3u') ? cleanName : `${cleanName}.m3u`;
+    const fileName = cleanName.endsWith(".m3u")
+      ? cleanName
+      : `${cleanName}.m3u`;
     const filePath = path.join(targetPath, fileName);
 
     // Generate M3U content
     let m3uContent = "#EXTM3U\n";
-    
+
     for (const trackPath of tracks) {
       // Extract filename from path for display
       const trackName = path.basename(trackPath);
       const nameWithoutExt = path.parse(trackName).name;
-      
+
       // Add EXTINF line with track info
       m3uContent += `#EXTINF:-1,${nameWithoutExt}\n`;
       m3uContent += `${trackPath}\n`;
     }
 
     // Write the playlist file
-    fs.writeFileSync(filePath, m3uContent, 'utf8');
+    fs.writeFileSync(filePath, m3uContent, "utf8");
 
     console.log(`✅ Playlist created: ${filePath}`);
 

@@ -51,8 +51,9 @@
     "build:clean": "rm -rf dist out .next",
     "build:static": "next build",
     "build:electron": "tsc && npm run api:build",
-    "build:package": "electron-builder --mac --arm64 --x64",
-    "test:routing": "node scripts/test-routing.js"
+    "build:package": "electron-builder",
+    "test:routing": "node scripts/test-routing.js",
+    "prettier": "npx prettier --write \"./**/*.{js,jsx,mjs,cjs,ts,tsx,json}\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

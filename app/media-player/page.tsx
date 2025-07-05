@@ -4,13 +4,7 @@ import MediaPlayerContainer from "@/components/media-player/media-player-contain
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WebSocketService } from "@/services/web-socket.service";
-import { 
-  Music, 
-  FolderOpen, 
-  Minimize,
-  Maximize,
-  X
-} from "lucide-react";
+import { FolderOpen, Music, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -22,33 +16,40 @@ export default function MediaPlayerPage() {
 
   useEffect(() => {
     console.log("🎵 Media Player Page: Initializing");
-    
+
     // Get playlist from URL parameters
-    const playlist = searchParams.get('playlist');
-    const autoPlayParam = searchParams.get('autoPlay');
-    
-    console.log("🎵 URL params - playlist:", playlist, "autoPlay:", autoPlayParam);
-    
+    const playlist = searchParams.get("playlist");
+    const autoPlayParam = searchParams.get("autoPlay");
+
+    console.log(
+      "🎵 URL params - playlist:",
+      playlist,
+      "autoPlay:",
+      autoPlayParam
+    );
+
     if (playlist) {
       const decodedPlaylist = decodeURIComponent(playlist);
       console.log("🎵 Setting playlist from URL:", decodedPlaylist);
       setPlaylistPath(decodedPlaylist);
-      setAutoPlay(autoPlayParam === 'true');
+      setAutoPlay(autoPlayParam === "true");
     }
 
     // Listen for playlist loading events from Electron
-    if (typeof window !== 'undefined' && window.electron?.onLoadPlaylist) {
+    if (typeof window !== "undefined" && window.electron?.onLoadPlaylist) {
       console.log("🎵 Setting up Electron playlist listener");
-      window.electron.onLoadPlaylist((data: { playlistPath: string; autoPlay: boolean }) => {
-        console.log("🎵 Received playlist from Electron:", data);
-        setPlaylistPath(data.playlistPath);
-        setAutoPlay(data.autoPlay);
-      });
+      window.electron.onLoadPlaylist(
+        (data: { playlistPath: string; autoPlay: boolean }) => {
+          console.log("🎵 Received playlist from Electron:", data);
+          setPlaylistPath(data.playlistPath);
+          setAutoPlay(data.autoPlay);
+        }
+      );
 
       // Cleanup listeners on unmount
       return () => {
         if (window.electron?.removeAllListeners) {
-          window.electron.removeAllListeners('load-playlist');
+          window.electron.removeAllListeners("load-playlist");
         }
       };
     }
@@ -61,14 +62,17 @@ export default function MediaPlayerPage() {
 
     const handleMediaPlayerCommand = (data: any) => {
       console.log("📡 Received WebSocket data:", data);
-      
+
       if (data.type === "mediaPlayerCommand") {
         console.log("📡 Received media player command:", data.command);
-        
+
         switch (data.command) {
           case "loadAndPlay":
             if (data.data?.playlistPath) {
-              console.log("📡 Loading and playing playlist:", data.data.playlistPath);
+              console.log(
+                "📡 Loading and playing playlist:",
+                data.data.playlistPath
+              );
               setPlaylistPath(data.data.playlistPath);
               setAutoPlay(true);
             }
@@ -93,7 +97,7 @@ export default function MediaPlayerPage() {
   }, []);
 
   const handleClose = () => {
-    if (typeof window !== 'undefined' && window.electron?.closeMediaPlayer) {
+    if (typeof window !== "undefined" && window.electron?.closeMediaPlayer) {
       window.electron.closeMediaPlayer();
     } else {
       // Fallback for web environment
@@ -101,21 +105,16 @@ export default function MediaPlayerPage() {
     }
   };
 
-  const handleMinimize = () => {
-    // In a real Electron app, you'd implement window minimize
-    console.log("Minimize window");
-  };
-
-  const handleMaximize = () => {
-    // In a real Electron app, you'd implement window maximize/restore
-    console.log("Maximize/restore window");
-  };
-
   const handleOpenFile = () => {
     setShowFileExplorer(!showFileExplorer);
   };
 
-  console.log("🎵 Rendering media player page with playlist:", playlistPath, "autoPlay:", autoPlay);
+  console.log(
+    "🎵 Rendering media player page with playlist:",
+    playlistPath,
+    "autoPlay:",
+    autoPlay
+  );
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -124,38 +123,28 @@ export default function MediaPlayerPage() {
         {/* Left side - Traffic light buttons */}
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2">
-            <button 
+            <button
               onClick={handleClose}
               className="w-3 h-3 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center group transition-colors"
             >
               <X className="w-2 h-2 text-red-800 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
-            <button 
-              onClick={handleMinimize}
-              className="w-3 h-3 bg-yellow-500 hover:bg-yellow-600 rounded-full flex items-center justify-center group transition-colors"
-            >
-              <Minimize className="w-2 h-2 text-yellow-800 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-            <button 
-              onClick={handleMaximize}
-              className="w-3 h-3 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center group transition-colors"
-            >
-              <Maximize className="w-2 h-2 text-green-800 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
           </div>
-          
+
           {/* App title */}
-          <span className="font-medium text-gray-700 dark:text-gray-300">BAPS Media Player</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">
+            BAPS Media Player
+          </span>
         </div>
 
         {/* Center - Menu items */}
         <div className="flex items-center">
-          <button 
+          <button
             onClick={handleOpenFile}
             className={`flex items-center space-x-2 px-3 py-1 rounded transition-colors ${
-              showFileExplorer 
-                ? 'bg-blue-500 text-white' 
-                : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+              showFileExplorer
+                ? "bg-blue-500 text-white"
+                : "hover:bg-gray-200 dark:hover:bg-gray-700"
             }`}
           >
             <FolderOpen className="w-4 h-4" />
@@ -174,8 +163,8 @@ export default function MediaPlayerPage() {
           <div className="w-80 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
             <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <span className="text-sm font-medium">File Explorer</span>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => setShowFileExplorer(false)}
                 className="h-6 w-6 p-0"
@@ -184,8 +173,8 @@ export default function MediaPlayerPage() {
               </Button>
             </div>
             <div className="h-[calc(100vh-120px)]">
-              <MediaPlayerContainer 
-                playlistPath={playlistPath} 
+              <MediaPlayerContainer
+                playlistPath={playlistPath}
                 autoPlay={autoPlay}
                 showFileExplorerOnly={true}
                 onFileSelect={(filePath) => {
@@ -223,7 +212,7 @@ export default function MediaPlayerPage() {
                       Now Playing
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {playlistPath.split('/').pop()}
+                      {playlistPath.split("/").pop()}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {playlistPath}
@@ -245,9 +234,9 @@ export default function MediaPlayerPage() {
                   </p>
                 )}
               </div>
-              
-              <MediaPlayerContainer 
-                playlistPath={playlistPath} 
+
+              <MediaPlayerContainer
+                playlistPath={playlistPath}
                 autoPlay={autoPlay}
                 showFileExplorerOnly={false}
               />
@@ -257,9 +246,12 @@ export default function MediaPlayerPage() {
               <Card className="w-full max-w-lg mx-6">
                 <CardContent className="flex flex-col items-center justify-center p-12">
                   <Music className="h-20 w-20 text-muted-foreground mb-6" />
-                  <h2 className="text-2xl font-semibold mb-3">No Media Loaded</h2>
+                  <h2 className="text-2xl font-semibold mb-3">
+                    No Media Loaded
+                  </h2>
                   <p className="text-muted-foreground text-center mb-6">
-                    Click "Open File" in the menu bar to browse and select media files or playlists to start playing.
+                    Click "Open File" in the menu bar to browse and select media
+                    files or playlists to start playing.
                   </p>
                   <Button onClick={handleOpenFile} size="lg">
                     <FolderOpen className="h-5 w-5 mr-2" />

@@ -2,43 +2,40 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import { ICalendarEvent } from "@/models/calendar-event.model";
-import { SettingsService } from "@/services/settings.service";
-import { PlaylistService } from "@/services/playlist.service";
-import { 
-  FileMusic, 
-  FolderOpen, 
-  Music, 
-  Play, 
-  Plus, 
-  Save, 
-  Trash2, 
-  X,
-  Download,
-  Check,
-  Server
-} from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import FileBrowser from "./file-browser";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from "@/components/ui/dialog";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { ICalendarEvent } from "@/models/calendar-event.model";
+import { PlaylistService } from "@/services/playlist.service";
+import { SettingsService } from "@/services/settings.service";
+import {
+  Check,
+  Download,
+  FileMusic,
+  FolderOpen,
+  Music,
+  Save,
+  Server,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import FileBrowser from "./file-browser";
 
 interface PlaylistCreatorProps {
   events: ICalendarEvent[];
@@ -51,7 +48,10 @@ interface PlaylistTrack {
   duration?: number;
 }
 
-export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistCreatorProps) {
+export default function PlaylistCreator({
+  events,
+  onPlaylistCreated,
+}: PlaylistCreatorProps) {
   const [selectedTracks, setSelectedTracks] = useState<PlaylistTrack[]>([]);
   const [playlistName, setPlaylistName] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<string>("none");
@@ -84,7 +84,7 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
   // Auto-generate playlist name when event is selected
   useEffect(() => {
     if (selectedEvent && selectedEvent !== "none") {
-      const event = events.find(e => e.uid === selectedEvent);
+      const event = events.find((e) => e.uid === selectedEvent);
       if (event) {
         // Clean the event name for file system compatibility
         const cleanName = event.summary.replace(/[<>:"/\\|?*]/g, "_");
@@ -94,15 +94,15 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
   }, [selectedEvent, events]);
 
   const handleFileSelect = (filePath: string) => {
-    const fileName = filePath.split('/').pop() || filePath;
+    const fileName = filePath.split("/").pop() || filePath;
     const newTrack: PlaylistTrack = {
       path: filePath,
       name: fileName,
     };
-    
+
     // Check if track already exists
-    if (!selectedTracks.some(track => track.path === filePath)) {
-      setSelectedTracks(prev => [...prev, newTrack]);
+    if (!selectedTracks.some((track) => track.path === filePath)) {
+      setSelectedTracks((prev) => [...prev, newTrack]);
       toast({
         title: "Track added",
         description: `Added "${fileName}" to playlist`,
@@ -117,18 +117,21 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
   };
 
   const handlePlaylistSelect = (files: string[]) => {
-    const newTracks: PlaylistTrack[] = files.map(filePath => ({
+    const newTracks: PlaylistTrack[] = files.map((filePath) => ({
       path: filePath,
-      name: filePath.split('/').pop() || filePath,
+      name: filePath.split("/").pop() || filePath,
     }));
-    
+
     // Filter out duplicates
-    const uniqueTracks = newTracks.filter(newTrack => 
-      !selectedTracks.some(existingTrack => existingTrack.path === newTrack.path)
+    const uniqueTracks = newTracks.filter(
+      (newTrack) =>
+        !selectedTracks.some(
+          (existingTrack) => existingTrack.path === newTrack.path,
+        ),
     );
-    
+
     if (uniqueTracks.length > 0) {
-      setSelectedTracks(prev => [...prev, ...uniqueTracks]);
+      setSelectedTracks((prev) => [...prev, ...uniqueTracks]);
       toast({
         title: "Tracks added",
         description: `Added ${uniqueTracks.length} tracks to playlist`,
@@ -144,7 +147,7 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
 
   const removeTrack = (index: number) => {
     const removedTrack = selectedTracks[index];
-    setSelectedTracks(prev => prev.filter((_, i) => i !== index));
+    setSelectedTracks((prev) => prev.filter((_, i) => i !== index));
     toast({
       title: "Track removed",
       description: `Removed "${removedTrack.name}" from playlist`,
@@ -199,12 +202,12 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
 
   const createPlaylistViaServer = async () => {
     try {
-      const fileName = playlistName.endsWith('.m3u') 
-        ? playlistName 
+      const fileName = playlistName.endsWith(".m3u")
+        ? playlistName
         : `${playlistName}.m3u`;
-      
-      const trackPaths = selectedTracks.map(track => track.path);
-      
+
+      const trackPaths = selectedTracks.map((track) => track.path);
+
       // Call backend API to create playlist
       const result = await PlaylistService.createPlaylist({
         name: fileName,
@@ -212,15 +215,15 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
         savePath: saveLocation,
         eventId: selectedEvent !== "none" ? selectedEvent : undefined,
       });
-      
+
       const fullPath = result.filePath;
       onPlaylistCreated?.(fullPath);
-      
+
       toast({
         title: "Playlist created successfully",
         description: `"${fileName}" has been saved to ${saveLocation}`,
       });
-      
+
       return true;
     } catch (error) {
       toast({
@@ -235,40 +238,40 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
   const createPlaylistViaDownload = async () => {
     try {
       // Generate M3U content
-      const trackPaths = selectedTracks.map(track => track.path).join('\n');
-      const m3uContent = `#EXTM3U\n${selectedTracks.map(track => 
-        `#EXTINF:-1,${track.name}\n${track.path}`
-      ).join('\n')}`;
-      
+      const trackPaths = selectedTracks.map((track) => track.path).join("\n");
+      const m3uContent = `#EXTM3U\n${selectedTracks
+        .map((track) => `#EXTINF:-1,${track.name}\n${track.path}`)
+        .join("\n")}`;
+
       // Create filename with .m3u extension
-      const fileName = playlistName.endsWith('.m3u') 
-        ? playlistName 
+      const fileName = playlistName.endsWith(".m3u")
+        ? playlistName
         : `${playlistName}.m3u`;
-      
+
       // Create a Blob and download
       const blob = new Blob([m3uContent], { type: "audio/x-mpegurl" });
       const url = URL.createObjectURL(blob);
-      
+
       // Create a temporary link and click it to trigger download
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
       document.body.appendChild(a);
       a.click();
-      
+
       // Clean up
       URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
+
       // Notify parent component
       const fullPath = `${saveLocation}/${fileName}`;
       onPlaylistCreated?.(fullPath);
-      
+
       toast({
         title: "Playlist downloaded successfully",
         description: `"${fileName}" has been downloaded`,
       });
-      
+
       return true;
     } catch (error) {
       toast({
@@ -286,13 +289,13 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
     setIsCreating(true);
     try {
       let success = false;
-      
+
       if (saveMethod === "server") {
         success = await createPlaylistViaServer();
       } else {
         success = await createPlaylistViaDownload();
       }
-      
+
       if (success) {
         // Reset form
         setSelectedTracks([]);
@@ -300,7 +303,6 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
         setSelectedEvent("none");
         setShowSaveDialog(false);
       }
-      
     } finally {
       setIsCreating(false);
     }
@@ -310,11 +312,14 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
     if (!seconds) return "Unknown";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const getTotalDuration = () => {
-    const total = selectedTracks.reduce((sum, track) => sum + (track.duration || 0), 0);
+    const total = selectedTracks.reduce(
+      (sum, track) => sum + (track.duration || 0),
+      0,
+    );
     return formatDuration(total);
   };
 
@@ -338,7 +343,9 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
                   <SelectValue placeholder="Select an event" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No event (Custom playlist)</SelectItem>
+                  <SelectItem value="none">
+                    No event (Custom playlist)
+                  </SelectItem>
                   {events.map((event) => (
                     <SelectItem key={event.uid} value={event.uid}>
                       {event.summary}
@@ -391,11 +398,7 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
               </div>
               <div className="flex gap-2">
                 {selectedTracks.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearPlaylist}
-                  >
+                  <Button variant="outline" size="sm" onClick={clearPlaylist}>
                     <Trash2 className="h-4 w-4 mr-2" />
                     Clear
                   </Button>
@@ -404,7 +407,9 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
                   <DialogTrigger asChild>
                     <Button
                       size="sm"
-                      disabled={selectedTracks.length === 0 || !playlistName.trim()}
+                      disabled={
+                        selectedTracks.length === 0 || !playlistName.trim()
+                      }
                     >
                       <Save className="h-4 w-4 mr-2" />
                       Save Playlist
@@ -423,10 +428,15 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
                           placeholder="Enter playlist name"
                         />
                       </div>
-                      
+
                       <div>
                         <Label>Save Method</Label>
-                        <Select value={saveMethod} onValueChange={(value: "download" | "server") => setSaveMethod(value)}>
+                        <Select
+                          value={saveMethod}
+                          onValueChange={(value: "download" | "server") =>
+                            setSaveMethod(value)
+                          }
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -458,7 +468,9 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
                             />
                             <Button
                               variant="outline"
-                              onClick={() => setSaveLocation(defaultPlaylistPath)}
+                              onClick={() =>
+                                setSaveLocation(defaultPlaylistPath)
+                              }
                             >
                               Default
                             </Button>
@@ -468,7 +480,7 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
                           </p>
                         </div>
                       )}
-                      
+
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="outline"
@@ -476,10 +488,7 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
                         >
                           Cancel
                         </Button>
-                        <Button
-                          onClick={createPlaylist}
-                          disabled={isCreating}
-                        >
+                        <Button onClick={createPlaylist} disabled={isCreating}>
                           {isCreating ? (
                             <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
                           ) : saveMethod === "server" ? (
@@ -487,7 +496,9 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
                           ) : (
                             <Download className="h-4 w-4 mr-2" />
                           )}
-                          {saveMethod === "server" ? "Save to Server" : "Download"}
+                          {saveMethod === "server"
+                            ? "Save to Server"
+                            : "Download"}
                         </Button>
                       </div>
                     </div>
@@ -495,7 +506,7 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
                 </Dialog>
               </div>
             </CardTitle>
-            
+
             {/* Playlist Info Bar */}
             {selectedTracks.length > 0 && (
               <div className="px-4 py-2 border-b bg-muted/50 flex-shrink-0">
@@ -506,7 +517,7 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
               </div>
             )}
           </CardHeader>
-          
+
           <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
             {selectedTracks.length === 0 ? (
               <div className="flex-1 flex items-center justify-center text-center p-6">
@@ -532,7 +543,9 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => {
                         e.preventDefault();
-                        const fromIndex = parseInt(e.dataTransfer.getData("text/plain"));
+                        const fromIndex = parseInt(
+                          e.dataTransfer.getData("text/plain"),
+                        );
                         moveTrack(fromIndex, index);
                       }}
                     >
@@ -586,7 +599,9 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
                   onClick={() => {
                     // Quick save with auto-generated name
                     if (!playlistName.trim()) {
-                      setPlaylistName(`Playlist_${new Date().toISOString().slice(0, 10)}`);
+                      setPlaylistName(
+                        `Playlist_${new Date().toISOString().slice(0, 10)}`,
+                      );
                     }
                     setTimeout(() => createPlaylist(), 100);
                   }}

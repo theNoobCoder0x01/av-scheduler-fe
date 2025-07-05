@@ -38,7 +38,7 @@ export class SchedulerService {
 
     let [dbResponse] = await query(
       `SELECT * FROM scheduled_actions WHERE id = ?`,
-      [actionId]
+      [actionId],
     );
 
     if (!dbResponse) {
@@ -60,7 +60,7 @@ export class SchedulerService {
     const hours = parseInt(timeParts[0]);
     const minutes = parseInt(timeParts[1]);
     const seconds = timeParts.length > 2 ? parseInt(timeParts[2]) : 0;
-    
+
     const now = new Date();
 
     // Set the time for today with seconds precision
@@ -90,7 +90,7 @@ export class SchedulerService {
         nextRun,
         Math.floor(new Date().getTime() / 1000),
         Math.floor(new Date().getTime() / 1000),
-      ]
+      ],
     );
 
     console.info("createScheduledAction response", dbResponse);
@@ -98,7 +98,7 @@ export class SchedulerService {
     await this.updateScheduler();
 
     const [createdRow] = await query(
-      `SELECT * FROM scheduled_actions WHERE id = last_insert_rowid()`
+      `SELECT * FROM scheduled_actions WHERE id = last_insert_rowid()`,
     );
 
     return createdRow;
@@ -106,7 +106,7 @@ export class SchedulerService {
 
   public static async updateScheduledAction(
     actionId: number,
-    data: ScheduledAction
+    data: ScheduledAction,
   ) {
     if (!actionId?.toString()?.length) {
       throw new Error("Action ID is required");
@@ -140,14 +140,14 @@ export class SchedulerService {
         data.nextRun,
         Math.floor(new Date().getTime() / 1000),
         actionId,
-      ]
+      ],
     );
 
     console.info("updateScheduledAction response", dbResponse);
 
     const [updatedRow] = await query(
       `SELECT * FROM scheduled_actions WHERE id = ?`,
-      [actionId]
+      [actionId],
     );
 
     await this.updateScheduler();
@@ -157,7 +157,7 @@ export class SchedulerService {
 
   public static async patchScheduledAction(
     actionId: number,
-    data: Partial<ScheduledAction>
+    data: Partial<ScheduledAction>,
   ) {
     if (!actionId?.toString()?.length) {
       throw new Error("Action ID is required");
@@ -213,12 +213,12 @@ export class SchedulerService {
 
     const dbResponse = await execute(
       `UPDATE scheduled_actions SET ${updateFields.join(", ")} WHERE id = ?`,
-      updateValues
+      updateValues,
     );
 
     const [updatedRow] = await query(
       `SELECT * FROM scheduled_actions WHERE id = ?`,
-      [actionId]
+      [actionId],
     );
 
     await this.updateScheduler();
@@ -232,7 +232,7 @@ export class SchedulerService {
 
     const dbResponse = await execute(
       `DELETE FROM scheduled_actions WHERE id = ?`,
-      [actionId]
+      [actionId],
     );
 
     console.info("deleteScheduledAction response", dbResponse);
@@ -244,7 +244,7 @@ export class SchedulerService {
   private static async updateScheduler() {
     actionScheduler.clearAllSchedules();
     actionScheduler.activeSchedules = this.mapDbResponseToScheduledAction(
-      await query(`SELECT * FROM scheduled_actions`)
+      await query(`SELECT * FROM scheduled_actions`),
     );
     actionScheduler.initializeSchedules();
   }

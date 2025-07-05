@@ -16,7 +16,7 @@ import {
   SkipBack,
   SkipForward,
   Volume2,
-  VolumeX
+  VolumeX,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -27,11 +27,11 @@ interface AudioPlayerProps {
   autoPlay?: boolean;
 }
 
-export default function AudioPlayer({ 
-  tracks, 
-  initialTrackIndex = 0, 
+export default function AudioPlayer({
+  tracks,
+  initialTrackIndex = 0,
   onTrackChange,
-  autoPlay = false 
+  autoPlay = false,
 }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const { toast } = useToast();
@@ -43,8 +43,8 @@ export default function AudioPlayer({
     currentTrack: null,
     playlist: tracks,
     currentIndex: initialTrackIndex,
-    repeat: 'none',
-    shuffle: false
+    repeat: "none",
+    shuffle: false,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -55,11 +55,11 @@ export default function AudioPlayer({
   useEffect(() => {
     if (tracks.length > 0) {
       const initialTrack = tracks[initialTrackIndex];
-      setPlayerState(prev => ({
+      setPlayerState((prev) => ({
         ...prev,
         playlist: tracks,
         currentIndex: initialTrackIndex,
-        currentTrack: initialTrack
+        currentTrack: initialTrack,
       }));
       loadTrack(initialTrack);
     }
@@ -96,62 +96,66 @@ export default function AudioPlayer({
     return () => WebSocketService.removeListener(handlePlayerCommand);
   }, []);
 
-  const loadTrack = useCallback(async (trackPath: string) => {
-    if (!audioRef.current) return;
+  const loadTrack = useCallback(
+    async (trackPath: string) => {
+      if (!audioRef.current) return;
 
-    setIsLoading(true);
-    setLoadError(null);
-    setRetryCount(0);
-    
-    try {
-      console.log("🎵 Loading track:", trackPath);
-      
-      // Validate media file first
-      const isValid = await MediaService.validateMediaFile(trackPath);
-      if (!isValid) {
-        throw new Error("File is not a valid media file");
+      setIsLoading(true);
+      setLoadError(null);
+      setRetryCount(0);
+
+      try {
+        console.log("🎵 Loading track:", trackPath);
+
+        // Validate media file first
+        const isValid = await MediaService.validateMediaFile(trackPath);
+        if (!isValid) {
+          throw new Error("File is not a valid media file");
+        }
+
+        // Test if the stream URL is accessible
+        const isAccessible = await MediaService.testStreamUrl(trackPath);
+        if (!isAccessible) {
+          throw new Error("Media file is not accessible for streaming");
+        }
+
+        const streamUrl = MediaService.getStreamUrl(trackPath);
+        console.log("🔗 Stream URL:", streamUrl);
+
+        // Reset audio element
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+
+        // Set new source with error handling
+        audioRef.current.src = streamUrl;
+        audioRef.current.load();
+
+        onTrackChange?.(trackPath, playerState.currentIndex);
+
+        toast({
+          title: "Track loaded",
+          description: `Loading: ${trackPath.split("/").pop()}`,
+        });
+      } catch (error) {
+        console.error("❌ Error loading track:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to load track";
+        setLoadError(errorMessage);
+        toast({
+          title: "Error loading track",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
-      
-      // Test if the stream URL is accessible
-      const isAccessible = await MediaService.testStreamUrl(trackPath);
-      if (!isAccessible) {
-        throw new Error("Media file is not accessible for streaming");
-      }
-      
-      const streamUrl = MediaService.getStreamUrl(trackPath);
-      console.log("🔗 Stream URL:", streamUrl);
-      
-      // Reset audio element
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      
-      // Set new source with error handling
-      audioRef.current.src = streamUrl;
-      audioRef.current.load();
-      
-      onTrackChange?.(trackPath, playerState.currentIndex);
-      
-      toast({
-        title: "Track loaded",
-        description: `Loading: ${trackPath.split('/').pop()}`,
-      });
-    } catch (error) {
-      console.error("❌ Error loading track:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to load track";
-      setLoadError(errorMessage);
-      toast({
-        title: "Error loading track",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [playerState.currentIndex, onTrackChange, toast]);
+    },
+    [playerState.currentIndex, onTrackChange, toast],
+  );
 
   const retryLoadTrack = useCallback(() => {
     if (playerState.currentTrack && retryCount < 3) {
-      setRetryCount(prev => prev + 1);
+      setRetryCount((prev) => prev + 1);
       console.log(`🔄 Retrying track load (attempt ${retryCount + 1})`);
       loadTrack(playerState.currentTrack);
     }
@@ -189,7 +193,7 @@ export default function AudioPlayer({
 
   const play = useCallback(async () => {
     if (!audioRef.current) return;
-    
+
     try {
       await audioRef.current.play();
       const newState = { ...playerState, isPlaying: true };
@@ -201,7 +205,8 @@ export default function AudioPlayer({
       setLoadError("Failed to play audio");
       toast({
         title: "Playback error",
-        description: "Failed to play audio. The file may be corrupted or unsupported.",
+        description:
+          "Failed to play audio. The file may be corrupted or unsupported.",
         variant: "destructive",
       });
     }
@@ -209,7 +214,7 @@ export default function AudioPlayer({
 
   const pause = useCallback(() => {
     if (!audioRef.current) return;
-    
+
     audioRef.current.pause();
     const newState = { ...playerState, isPlaying: false };
     setPlayerState(newState);
@@ -218,7 +223,7 @@ export default function AudioPlayer({
 
   const stop = useCallback(() => {
     if (!audioRef.current) return;
-    
+
     audioRef.current.pause();
     audioRef.current.currentTime = 0;
     const newState = { ...playerState, isPlaying: false, currentTime: 0 };
@@ -226,20 +231,23 @@ export default function AudioPlayer({
     PlayerService.updateState(newState);
   }, [playerState]);
 
-  const seek = useCallback((time: number) => {
-    if (!audioRef.current || !isFinite(time)) return;
-    
-    const clampedTime = Math.max(0, Math.min(time, playerState.duration));
-    audioRef.current.currentTime = clampedTime;
-    setPlayerState(prev => ({ ...prev, currentTime: clampedTime }));
-  }, [playerState.duration]);
+  const seek = useCallback(
+    (time: number) => {
+      if (!audioRef.current || !isFinite(time)) return;
+
+      const clampedTime = Math.max(0, Math.min(time, playerState.duration));
+      audioRef.current.currentTime = clampedTime;
+      setPlayerState((prev) => ({ ...prev, currentTime: clampedTime }));
+    },
+    [playerState.duration],
+  );
 
   const setVolume = useCallback((volume: number) => {
     if (!audioRef.current) return;
-    
+
     const clampedVolume = Math.max(0, Math.min(1, volume));
     audioRef.current.volume = clampedVolume;
-    setPlayerState(prev => ({ ...prev, volume: clampedVolume }));
+    setPlayerState((prev) => ({ ...prev, volume: clampedVolume }));
     setIsMuted(clampedVolume === 0);
   }, []);
 
@@ -251,7 +259,7 @@ export default function AudioPlayer({
         ...playerState,
         currentIndex: nextIndex,
         currentTrack: nextTrack,
-        currentTime: 0
+        currentTime: 0,
       };
       setPlayerState(newState);
       loadTrack(nextTrack);
@@ -267,7 +275,7 @@ export default function AudioPlayer({
         ...playerState,
         currentIndex: prevIndex,
         currentTrack: prevTrack,
-        currentTime: 0
+        currentTime: 0,
       };
       setPlayerState(newState);
       loadTrack(prevTrack);
@@ -276,14 +284,14 @@ export default function AudioPlayer({
   }, [playerState, tracks, loadTrack]);
 
   const toggleRepeat = useCallback(() => {
-    const modes: Array<'none' | 'one' | 'all'> = ['none', 'one', 'all'];
+    const modes: Array<"none" | "one" | "all"> = ["none", "one", "all"];
     const currentIndex = modes.indexOf(playerState.repeat);
     const newRepeat = modes[(currentIndex + 1) % modes.length];
-    setPlayerState(prev => ({ ...prev, repeat: newRepeat }));
+    setPlayerState((prev) => ({ ...prev, repeat: newRepeat }));
   }, [playerState.repeat]);
 
   const toggleShuffle = useCallback(() => {
-    setPlayerState(prev => ({ ...prev, shuffle: !prev.shuffle }));
+    setPlayerState((prev) => ({ ...prev, shuffle: !prev.shuffle }));
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -297,19 +305,19 @@ export default function AudioPlayer({
   // Audio event handlers
   const handleTimeUpdate = useCallback(() => {
     if (!audioRef.current) return;
-    
+
     const currentTime = audioRef.current.currentTime;
     if (isFinite(currentTime)) {
-      setPlayerState(prev => ({ ...prev, currentTime }));
+      setPlayerState((prev) => ({ ...prev, currentTime }));
     }
   }, []);
 
   const handleLoadedMetadata = useCallback(() => {
     if (!audioRef.current) return;
-    
+
     const duration = audioRef.current.duration;
     if (isFinite(duration)) {
-      setPlayerState(prev => ({ ...prev, duration }));
+      setPlayerState((prev) => ({ ...prev, duration }));
       console.log("✅ Track loaded successfully, duration:", duration);
     }
   }, []);
@@ -320,59 +328,65 @@ export default function AudioPlayer({
     setRetryCount(0);
   }, []);
 
-  const handleError = useCallback((e: any) => {
-    console.error("❌ Audio error:", e);
-    const error = audioRef.current?.error;
-    let errorMessage = "Unknown playback error";
-    
-    if (error) {
-      switch (error.code) {
-        case error.MEDIA_ERR_ABORTED:
-          errorMessage = "Playback was aborted";
-          break;
-        case error.MEDIA_ERR_NETWORK:
-          errorMessage = "Network error while loading media";
-          break;
-        case error.MEDIA_ERR_DECODE:
-          errorMessage = "Media decode error - file may be corrupted";
-          break;
-        case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
-          errorMessage = "Media format not supported by browser";
-          break;
+  const handleError = useCallback(
+    (e: any) => {
+      console.error("❌ Audio error:", e);
+      const error = audioRef.current?.error;
+      let errorMessage = "Unknown playback error";
+
+      if (error) {
+        switch (error.code) {
+          case error.MEDIA_ERR_ABORTED:
+            errorMessage = "Playback was aborted";
+            break;
+          case error.MEDIA_ERR_NETWORK:
+            errorMessage = "Network error while loading media";
+            break;
+          case error.MEDIA_ERR_DECODE:
+            errorMessage = "Media decode error - file may be corrupted";
+            break;
+          case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorMessage = "Media format not supported by browser";
+            break;
+        }
       }
-    }
-    
-    setLoadError(errorMessage);
-    
-    // Don't show toast for network errors during loading
-    if (error?.code !== error?.MEDIA_ERR_NETWORK || playerState.isPlaying) {
-      toast({
-        title: "Playback error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    }
-  }, [toast, playerState.isPlaying]);
+
+      setLoadError(errorMessage);
+
+      // Don't show toast for network errors during loading
+      if (error?.code !== error?.MEDIA_ERR_NETWORK || playerState.isPlaying) {
+        toast({
+          title: "Playback error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    },
+    [toast, playerState.isPlaying],
+  );
 
   const handleEnded = useCallback(() => {
-    if (playerState.repeat === 'one') {
+    if (playerState.repeat === "one") {
       // Repeat current track
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play();
       }
-    } else if (playerState.repeat === 'all' || playerState.currentIndex < tracks.length - 1) {
+    } else if (
+      playerState.repeat === "all" ||
+      playerState.currentIndex < tracks.length - 1
+    ) {
       // Go to next track or loop back to first
       const nextIndex = playerState.currentIndex + 1;
       if (nextIndex < tracks.length) {
         nextTrack();
-      } else if (playerState.repeat === 'all') {
+      } else if (playerState.repeat === "all") {
         const firstTrack = tracks[0];
         const newState = {
           ...playerState,
           currentIndex: 0,
           currentTrack: firstTrack,
-          currentTime: 0
+          currentTime: 0,
         };
         setPlayerState(newState);
         loadTrack(firstTrack);
@@ -380,7 +394,7 @@ export default function AudioPlayer({
       }
     } else {
       // Stop playing
-      setPlayerState(prev => ({ ...prev, isPlaying: false }));
+      setPlayerState((prev) => ({ ...prev, isPlaying: false }));
     }
   }, [playerState, tracks, nextTrack, loadTrack]);
 
@@ -388,11 +402,14 @@ export default function AudioPlayer({
     if (!isFinite(seconds)) return "0:00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const currentTrackName = playerState.currentTrack 
-    ? playerState.currentTrack.split('/').pop()?.replace(/\.[^/.]+$/, "") || "Unknown Track"
+  const currentTrackName = playerState.currentTrack
+    ? playerState.currentTrack
+        .split("/")
+        .pop()
+        ?.replace(/\.[^/.]+$/, "") || "Unknown Track"
     : "No Track";
 
   return (
@@ -408,7 +425,7 @@ export default function AudioPlayer({
           preload="metadata"
           crossOrigin="anonymous"
         />
-        
+
         {/* Track Info */}
         <div className="text-center mb-4">
           <h3 className="font-semibold text-lg truncate">{currentTrackName}</h3>
@@ -422,7 +439,9 @@ export default function AudioPlayer({
           )}
           {loadError && (
             <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded">
-              <p className="text-sm text-red-600 dark:text-red-400">⚠️ {loadError}</p>
+              <p className="text-sm text-red-600 dark:text-red-400">
+                ⚠️ {loadError}
+              </p>
               {retryCount < 3 && (
                 <Button
                   variant="outline"
@@ -463,7 +482,7 @@ export default function AudioPlayer({
           >
             <Shuffle className="h-4 w-4" />
           </Button>
-          
+
           <Button
             variant="ghost"
             size="icon"
@@ -472,7 +491,7 @@ export default function AudioPlayer({
           >
             <SkipBack className="h-4 w-4" />
           </Button>
-          
+
           <Button
             size="icon"
             onClick={playerState.isPlaying ? pause : play}
@@ -486,7 +505,7 @@ export default function AudioPlayer({
               <Play className="h-4 w-4" />
             )}
           </Button>
-          
+
           <Button
             variant="ghost"
             size="icon"
@@ -495,14 +514,14 @@ export default function AudioPlayer({
           >
             <SkipForward className="h-4 w-4" />
           </Button>
-          
+
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleRepeat}
-            className={playerState.repeat !== 'none' ? "text-primary" : ""}
+            className={playerState.repeat !== "none" ? "text-primary" : ""}
           >
-            {playerState.repeat === 'one' ? (
+            {playerState.repeat === "one" ? (
               <Repeat1 className="h-4 w-4" />
             ) : (
               <Repeat className="h-4 w-4" />
@@ -532,15 +551,35 @@ export default function AudioPlayer({
         </div>
 
         {/* Debug Info */}
-        {process.env.NODE_ENV === 'development' && (
+        {process.env.NODE_ENV === "development" && (
           <div className="mt-4 p-2 bg-muted rounded text-xs">
-            <p><strong>Current Track:</strong> {playerState.currentTrack}</p>
-            <p><strong>Stream URL:</strong> {playerState.currentTrack ? MediaService.getStreamUrl(playerState.currentTrack) : 'None'}</p>
-            <p><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</p>
-            <p><strong>Error:</strong> {loadError || 'None'}</p>
-            <p><strong>Retry Count:</strong> {retryCount}/3</p>
-            <p><strong>Duration:</strong> {isFinite(playerState.duration) ? formatTime(playerState.duration) : 'Unknown'}</p>
-            <p><strong>Auto Play:</strong> {autoPlay ? 'Yes' : 'No'}</p>
+            <p>
+              <strong>Current Track:</strong> {playerState.currentTrack}
+            </p>
+            <p>
+              <strong>Stream URL:</strong>{" "}
+              {playerState.currentTrack
+                ? MediaService.getStreamUrl(playerState.currentTrack)
+                : "None"}
+            </p>
+            <p>
+              <strong>Loading:</strong> {isLoading ? "Yes" : "No"}
+            </p>
+            <p>
+              <strong>Error:</strong> {loadError || "None"}
+            </p>
+            <p>
+              <strong>Retry Count:</strong> {retryCount}/3
+            </p>
+            <p>
+              <strong>Duration:</strong>{" "}
+              {isFinite(playerState.duration)
+                ? formatTime(playerState.duration)
+                : "Unknown"}
+            </p>
+            <p>
+              <strong>Auto Play:</strong> {autoPlay ? "Yes" : "No"}
+            </p>
           </div>
         )}
       </CardContent>

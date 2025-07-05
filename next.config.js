@@ -10,20 +10,20 @@ const nextConfig = {
     }
     return config;
   },
-  
+
   // CRITICAL: Always export static files for Electron
   output: "export",
-  
+
   // Ensure trailing slash is false for proper routing
   trailingSlash: false,
-  
+
   // Disable image optimization for static export
   images: {
-    unoptimized: true
+    unoptimized: true,
   },
-  
+
   // Configure asset prefix for proper static file serving
-  assetPrefix: process.env.NODE_ENV === 'production' ? '' : '',
+  assetPrefix: process.env.NODE_ENV === "production" ? "" : "",
 };
 
 module.exports = nextConfig;

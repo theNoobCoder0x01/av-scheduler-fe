@@ -1,50 +1,76 @@
 // Comprehensive Gujarati calendar month names and their variations
 export const GUJARATI_MONTHS = {
   // Chaitra (March-April) - Month 03
-  'chaitra': ['chaitra', 'chaitri', 'chait'],
-  
-  // Vaishakh (April-May) - Month 04  
-  'vaishakh': ['vaishakh', 'vaisakh', 'baisakh'],
-  
+  chaitra: ["chaitra", "chaitri", "chait"],
+
+  // Vaishakh (April-May) - Month 04
+  vaishakh: ["vaishakh", "vaisakh", "baisakh"],
+
   // Jyeshtha/Jeth (May-June) - Month 05
-  'jyeshtha': ['jyeshtha', 'jyesht', 'jeth'],
-  
+  jyeshtha: ["jyeshtha", "jyesht", "jeth"],
+
   // Ashadh (June-July) - Month 06
-  'ashadh': ['ashadh', 'ashad', 'ashar'],
-  
+  ashadh: ["ashadh", "ashad", "ashar"],
+
   // Shravan (July-August) - Month 07
-  'shravan': ['shravan', 'savan', 'saavan'],
-  
+  shravan: ["shravan", "savan", "saavan"],
+
   // Bhadrapad/Bhadarvo (August-September) - Month 08
-  'bhadrapad': ['bhadrapad', 'bhadra', 'bhado', 'bhadarvo'],
-  
+  bhadrapad: ["bhadrapad", "bhadra", "bhado", "bhadarvo"],
+
   // Ashwin/Aso (September-October) - Month 09
-  'ashwin': ['ashwin', 'aso', 'aaso'],
-  
+  ashwin: ["ashwin", "aso", "aaso"],
+
   // Kartik/Kartak (October-November) - Month 10
-  'kartik': ['kartik', 'kartika', 'karthik', 'kartak'],
-  
+  kartik: ["kartik", "kartika", "karthik", "kartak"],
+
   // Margashirsha/Magshar (November-December) - Month 11
-  'margashirsha': ['margashirsha', 'margshirsh', 'aghan', 'magshar'],
-  
+  margashirsha: ["margashirsha", "margshirsh", "aghan", "magshar"],
+
   // Paush/Posh (December-January) - Month 12
-  'paush': ['paush', 'posh', 'pausha'],
-  
+  paush: ["paush", "posh", "pausha"],
+
   // Magh/Maha (January-February) - Month 01
-  'magh': ['magh', 'mag', 'magha', 'maha'],
-  
+  magh: ["magh", "mag", "magha", "maha"],
+
   // Falgun/Fagan (February-March) - Month 02
-  'falgun': ['falgun', 'phalgun', 'fagun', 'fagan']
+  falgun: ["falgun", "phalgun", "fagun", "fagan"],
 };
 
 // Common Gujarati calendar terms (used for sorting priority)
 export const GUJARATI_CALENDAR_TERMS = [
-  'sud', 'vad', 'shukla', 'krishna', 'paksha',
-  'purnima', 'punam', 'amavasya', 'amas', 'ekadashi', 'chaturdashi',
-  'pancham', 'saptam', 'navami', 'dashami', 'dasham',
-  'bij', 'trij', 'choth', 'pancham', 'chhath',
-  'satam', 'aatham', 'atham', 'nom', 'dasham', 'agiyaras',
-  'baras', 'teras', 'chaudas', 'poonam', 'padvo'
+  "sud",
+  "vad",
+  "shukla",
+  "krishna",
+  "paksha",
+  "purnima",
+  "punam",
+  "amavasya",
+  "amas",
+  "ekadashi",
+  "chaturdashi",
+  "pancham",
+  "saptam",
+  "navami",
+  "dashami",
+  "dasham",
+  "bij",
+  "trij",
+  "choth",
+  "pancham",
+  "chhath",
+  "satam",
+  "aatham",
+  "atham",
+  "nom",
+  "dasham",
+  "agiyaras",
+  "baras",
+  "teras",
+  "chaudas",
+  "poonam",
+  "padvo",
 ];
 
 /**
@@ -55,9 +81,9 @@ export function removeFastAnnotation(summary: string): string {
 
   // Remove (FAST), (fast), and similar variations
   return summary
-    .replace(/\s*\(FAST\)/gi, '')
-    .replace(/\s*\(fast\)/gi, '')
-    .replace(/\s*\(Fast\)/gi, '')
+    .replace(/\s*\(FAST\)/gi, "")
+    .replace(/\s*\(fast\)/gi, "")
+    .replace(/\s*\(Fast\)/gi, "")
     .trim();
 }
 
@@ -70,20 +96,21 @@ export function removeGujaratiMonthNames(summary: string): string {
   let cleanedSummary = summary;
 
   // Remove ONLY Gujarati month names (not other calendar terms)
-  Object.values(GUJARATI_MONTHS).flat().forEach(monthName => {
-    // Create a more precise regex that matches whole words and handles word boundaries
-    const regex = new RegExp(`\\b${monthName}\\b`, 'gi');
-    cleanedSummary = cleanedSummary.replace(regex, '');
-  });
+  Object.values(GUJARATI_MONTHS)
+    .flat()
+    .forEach((monthName) => {
+      // Create a more precise regex that matches whole words and handles word boundaries
+      const regex = new RegExp(`\\b${monthName}\\b`, "gi");
+      cleanedSummary = cleanedSummary.replace(regex, "");
+    });
 
   // Clean up extra spaces and trim
-  cleanedSummary = cleanedSummary
-    .replace(/\s+/g, ' ')
-    .trim();
+  cleanedSummary = cleanedSummary.replace(/\s+/g, " ").trim();
 
   // Preserve original capitalization but ensure first letter is capitalized
   if (cleanedSummary.length > 0) {
-    cleanedSummary = cleanedSummary.charAt(0).toUpperCase() + cleanedSummary.slice(1);
+    cleanedSummary =
+      cleanedSummary.charAt(0).toUpperCase() + cleanedSummary.slice(1);
   }
 
   return cleanedSummary;
@@ -96,27 +123,30 @@ export function getMonthFromDate(date: number | Date): string {
   if (typeof date === "number") {
     date = new Date(date * 1000); // Convert seconds to milliseconds
   }
-  return String(date.getMonth() + 1).padStart(2, '0');
+  return String(date.getMonth() + 1).padStart(2, "0");
 }
 
 /**
  * Processes event summary by removing (FAST), Gujarati month names, and adding month prefix
  */
-export function processEventSummary(summary: string, startDate: number | Date): string {
+export function processEventSummary(
+  summary: string,
+  startDate: number | Date,
+): string {
   // Step 1: Remove (FAST) annotation
   let processedSummary = removeFastAnnotation(summary);
-  
+
   // Step 2: Remove Gujarati month names
   processedSummary = removeGujaratiMonthNames(processedSummary);
-  
+
   // Step 3: Add month prefix
   const monthNumber = getMonthFromDate(startDate);
-  
+
   // Only add month prefix if the summary doesn't already start with a month number
   if (!/^\d{2}\s/.test(processedSummary)) {
     return `${monthNumber} ${processedSummary}`;
   }
-  
+
   return processedSummary;
 }
 
@@ -125,29 +155,37 @@ export function processEventSummary(summary: string, startDate: number | Date): 
  */
 export function hasGujaratiCalendarTerms(summary: string): boolean {
   if (!summary) return false;
-  
+
   const lowerSummary = summary.toLowerCase();
-  return GUJARATI_CALENDAR_TERMS.some(term => 
-    lowerSummary.includes(term.toLowerCase())
+  return GUJARATI_CALENDAR_TERMS.some((term) =>
+    lowerSummary.includes(term.toLowerCase()),
   );
 }
 
 /**
  * Sorts events with Gujarati calendar terms first, then by start date
  */
-export function sortEventsByGujaratiTerms<T extends { summary: string; start: number | Date }>(events: T[]): T[] {
+export function sortEventsByGujaratiTerms<
+  T extends { summary: string; start: number | Date },
+>(events: T[]): T[] {
   return [...events].sort((a, b) => {
     const aHasTerms = hasGujaratiCalendarTerms(a.summary);
     const bHasTerms = hasGujaratiCalendarTerms(b.summary);
-    
+
     // First sort by presence of Gujarati calendar terms
     if (aHasTerms && !bHasTerms) return -1;
     if (!aHasTerms && bHasTerms) return 1;
-    
+
     // Then sort by start date
-    const aStart = typeof a.start === 'number' ? a.start : Math.floor(a.start.getTime() / 1000);
-    const bStart = typeof b.start === 'number' ? b.start : Math.floor(b.start.getTime() / 1000);
-    
+    const aStart =
+      typeof a.start === "number"
+        ? a.start
+        : Math.floor(a.start.getTime() / 1000);
+    const bStart =
+      typeof b.start === "number"
+        ? b.start
+        : Math.floor(b.start.getTime() / 1000);
+
     return aStart - bStart;
   });
 }
@@ -158,7 +196,7 @@ export function sortEventsByGujaratiTerms<T extends { summary: string; start: nu
 export function testProcessing() {
   const testCases = [
     "Posh Sud Bij",
-    "Maha Sud Trij", 
+    "Maha Sud Trij",
     "Fagan Sud Padvo",
     "Chaitra Sud Choth",
     "Vaishakh Sud Ekadashi (FAST)",
@@ -170,16 +208,18 @@ export function testProcessing() {
     "Kartak Sud Dasham",
     "Magshar Sud Ekadashi (FAST)",
     "Posh Sud Ekadashi (fast)",
-    "Maha Vad Ekadashi (Fast)"
+    "Maha Vad Ekadashi (Fast)",
   ];
 
   console.log("Testing event summary processing:");
-  testCases.forEach(testCase => {
+  testCases.forEach((testCase) => {
     const withoutFast = removeFastAnnotation(testCase);
     const withoutMonth = removeGujaratiMonthNames(withoutFast);
-    const processed = processEventSummary(testCase, new Date('2024-01-15'));
+    const processed = processEventSummary(testCase, new Date("2024-01-15"));
     console.log(`"${testCase}" → "${processed}"`);
-    console.log(`  Steps: "${testCase}" → "${withoutFast}" → "${withoutMonth}" → "${processed}"`);
+    console.log(
+      `  Steps: "${testCase}" → "${withoutFast}" → "${withoutMonth}" → "${processed}"`,
+    );
   });
 }
 
@@ -196,9 +236,17 @@ export function testEventSorting() {
   ];
 
   console.log("Testing event sorting:");
-  console.log("Original order:", testEvents.map(e => e.summary));
-  
+  console.log(
+    "Original order:",
+    testEvents.map((e) => e.summary),
+  );
+
   const sorted = sortEventsByGujaratiTerms(testEvents);
-  console.log("Sorted order:", sorted.map(e => e.summary));
-  console.log("Expected: Gujarati events first (by date), then regular events (by date)");
+  console.log(
+    "Sorted order:",
+    sorted.map((e) => e.summary),
+  );
+  console.log(
+    "Expected: Gujarati events first (by date), then regular events (by date)",
+  );
 }

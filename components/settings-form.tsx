@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { AppSettings } from "@/models/settings.model";
 import { SettingsService } from "@/services/settings.service";
@@ -92,7 +98,11 @@ export default function SettingsForm() {
                   }
                   placeholder="Enter playlist folder path"
                 />
-                <Button variant="outline" size="icon" onClick={handleFolderSelect}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleFolderSelect}
+                >
                   <FolderOpen className="h-4 w-4" />
                 </Button>
               </div>
@@ -105,8 +115,8 @@ export default function SettingsForm() {
             <div className="space-y-2">
               <Label htmlFor="playerMode">Default Media Player</Label>
               <Select
-                value={settings?.playerMode || 'vlc'}
-                onValueChange={(value: 'vlc' | 'built-in') =>
+                value={settings?.playerMode || "vlc"}
+                onValueChange={(value: "vlc" | "built-in") =>
                   setSettings((prev) => ({
                     ...prev!,
                     playerMode: value,
@@ -142,7 +152,8 @@ export default function SettingsForm() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Choose which player to use for scheduled actions and media playback
+                Choose which player to use for scheduled actions and media
+                playback
               </p>
             </div>
 

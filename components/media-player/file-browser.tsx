@@ -8,7 +8,7 @@ import {
   DirectoryContents,
   FileBrowserService,
   FileItem,
-  SystemDrive
+  SystemDrive,
 } from "@/services/file-browser.service";
 import { PlaylistService } from "@/services/playlist.service";
 import {
@@ -24,7 +24,7 @@ import {
   Search,
   Video,
   FileMusic,
-  ArrowUp
+  ArrowUp,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -36,14 +36,15 @@ interface FileBrowserProps {
   compact?: boolean;
 }
 
-export default function FileBrowser({ 
-  onFileSelect, 
-  onPlaylistSelect, 
+export default function FileBrowser({
+  onFileSelect,
+  onPlaylistSelect,
   onPlaylistFileSelect,
   mediaOnly = false,
-  compact = false
+  compact = false,
 }: FileBrowserProps) {
-  const [currentContents, setCurrentContents] = useState<DirectoryContents | null>(null);
+  const [currentContents, setCurrentContents] =
+    useState<DirectoryContents | null>(null);
   const [drives, setDrives] = useState<SystemDrive[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,22 +57,83 @@ export default function FileBrowser({
   // Enhanced media extensions
   const mediaExtensions = [
     // Video formats
-    'mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'wmv', 'flv', '3gp', 'm4v',
-    'mpg', 'mpeg', 'ogv', 'ts', 'mts', 'm2ts', 'vob', 'rm', 'rmvb', 'asf',
-    'divx', 'xvid', 'f4v', 'm2v', 'mxf', 'roq', 'nsv',
-    
+    "mp4",
+    "webm",
+    "ogg",
+    "mov",
+    "avi",
+    "mkv",
+    "wmv",
+    "flv",
+    "3gp",
+    "m4v",
+    "mpg",
+    "mpeg",
+    "ogv",
+    "ts",
+    "mts",
+    "m2ts",
+    "vob",
+    "rm",
+    "rmvb",
+    "asf",
+    "divx",
+    "xvid",
+    "f4v",
+    "m2v",
+    "mxf",
+    "roq",
+    "nsv",
+
     // Audio formats
-    'mp3', 'wav', 'flac', 'aac', 'm4a', 'wma', 'opus', 'amr', 'ac3', 'dts',
-    'ape', 'au', 'ra', 'tta', 'tak', 'mpc', 'wv', 'spx', 'gsm', 'aiff',
-    'caf', 'w64', 'rf64', 'voc', 'ircam', 'w64', 'mat4', 'mat5', 'pvf',
-    'xi', 'htk', 'sds', 'avr', 'wavex', 'sd2', 'flac', 'caf', 'fap',
-    
+    "mp3",
+    "wav",
+    "flac",
+    "aac",
+    "m4a",
+    "wma",
+    "opus",
+    "amr",
+    "ac3",
+    "dts",
+    "ape",
+    "au",
+    "ra",
+    "tta",
+    "tak",
+    "mpc",
+    "wv",
+    "spx",
+    "gsm",
+    "aiff",
+    "caf",
+    "w64",
+    "rf64",
+    "voc",
+    "ircam",
+    "w64",
+    "mat4",
+    "mat5",
+    "pvf",
+    "xi",
+    "htk",
+    "sds",
+    "avr",
+    "wavex",
+    "sd2",
+    "flac",
+    "caf",
+    "fap",
+
     // Streaming formats
-    'm3u8', 'ts', 'webm', 'ogv'
+    "m3u8",
+    "ts",
+    "webm",
+    "ogv",
   ];
 
   // Playlist extensions
-  const playlistExtensions = ['m3u', 'm3u8', 'pls'];
+  const playlistExtensions = ["m3u", "m3u8", "pls"];
 
   // Load initial data
   useEffect(() => {
@@ -93,12 +155,12 @@ export default function FileBrowser({
     try {
       const contents = await FileBrowserService.browseDirectory(path);
       setCurrentContents(contents);
-      
+
       // Update navigation history properly
       if (path) {
         // Remove any forward history when navigating to a new path
         const newHistory = navigationHistory.slice(0, historyIndex + 1);
-        
+
         // Only add to history if it's different from the current path
         if (newHistory[newHistory.length - 1] !== path) {
           newHistory.push(path);
@@ -124,13 +186,15 @@ export default function FileBrowser({
       setHistoryIndex(historyIndex - 1);
       // Don't add to history when navigating back
       setIsLoading(true);
-      FileBrowserService.browseDirectory(previousPath).then(contents => {
-        setCurrentContents(contents);
-        setIsLoading(false);
-      }).catch(error => {
-        console.error("Error navigating back:", error);
-        setIsLoading(false);
-      });
+      FileBrowserService.browseDirectory(previousPath)
+        .then((contents) => {
+          setCurrentContents(contents);
+          setIsLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error navigating back:", error);
+          setIsLoading(false);
+        });
     }
   };
 
@@ -140,13 +204,15 @@ export default function FileBrowser({
       setHistoryIndex(historyIndex + 1);
       // Don't add to history when navigating forward
       setIsLoading(true);
-      FileBrowserService.browseDirectory(nextPath).then(contents => {
-        setCurrentContents(contents);
-        setIsLoading(false);
-      }).catch(error => {
-        console.error("Error navigating forward:", error);
-        setIsLoading(false);
-      });
+      FileBrowserService.browseDirectory(nextPath)
+        .then((contents) => {
+          setCurrentContents(contents);
+          setIsLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error navigating forward:", error);
+          setIsLoading(false);
+        });
     }
   };
 
@@ -158,7 +224,9 @@ export default function FileBrowser({
 
   const navigateHome = () => {
     // Navigate to user's home directory
-    const homeDir = drives.find(drive => drive.type === 'folder' && drive.name === 'Home');
+    const homeDir = drives.find(
+      (drive) => drive.type === "folder" && drive.name === "Home",
+    );
     if (homeDir) {
       browseDirectory(homeDir.path);
     } else {
@@ -171,31 +239,65 @@ export default function FileBrowser({
   };
 
   const isMediaFile = (item: FileItem) => {
-    const ext = item.extension.toLowerCase().replace('.', '');
+    const ext = item.extension.toLowerCase().replace(".", "");
     return mediaExtensions.includes(ext);
   };
 
   const isPlaylistFile = (item: FileItem) => {
-    const ext = item.extension.toLowerCase().replace('.', '');
+    const ext = item.extension.toLowerCase().replace(".", "");
     return playlistExtensions.includes(ext);
   };
 
   const getFileIcon = (item: FileItem) => {
     if (item.isDirectory) {
-      return <Folder className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-blue-500`} />;
+      return (
+        <Folder
+          className={`${compact ? "h-3 w-3" : "h-4 w-4"} text-blue-500`}
+        />
+      );
     }
-    
-    const ext = item.extension.toLowerCase().replace('.', '');
-    const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'wmv', 'flv', '3gp', 'm4v', 'mpg', 'mpeg', 'ogv'];
-    
+
+    const ext = item.extension.toLowerCase().replace(".", "");
+    const videoExtensions = [
+      "mp4",
+      "webm",
+      "ogg",
+      "mov",
+      "avi",
+      "mkv",
+      "wmv",
+      "flv",
+      "3gp",
+      "m4v",
+      "mpg",
+      "mpeg",
+      "ogv",
+    ];
+
     if (playlistExtensions.includes(ext)) {
-      return <FileMusic className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-orange-500`} />;
+      return (
+        <FileMusic
+          className={`${compact ? "h-3 w-3" : "h-4 w-4"} text-orange-500`}
+        />
+      );
     } else if (videoExtensions.includes(ext)) {
-      return <Video className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-purple-500`} />;
+      return (
+        <Video
+          className={`${compact ? "h-3 w-3" : "h-4 w-4"} text-purple-500`}
+        />
+      );
     } else if (isMediaFile(item)) {
-      return <Music className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-green-500`} />;
+      return (
+        <Music
+          className={`${compact ? "h-3 w-3" : "h-4 w-4"} text-green-500`}
+        />
+      );
     } else {
-      return <File className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />;
+      return (
+        <File
+          className={`${compact ? "h-3 w-3" : "h-4 w-4"} text-muted-foreground`}
+        />
+      );
     }
   };
 
@@ -215,10 +317,11 @@ export default function FileBrowser({
       onPlaylistFileSelect?.(item.path);
     } else if (isMediaFile(item)) {
       // Get all media files in current directory for playlist
-      const mediaFiles = currentContents?.items
-        .filter(i => isMediaFile(i))
-        .map(i => i.path) || [];
-      
+      const mediaFiles =
+        currentContents?.items
+          .filter((i) => isMediaFile(i))
+          .map((i) => i.path) || [];
+
       const startIndex = mediaFiles.indexOf(item.path);
       onPlaylistSelect?.(mediaFiles);
     }
@@ -250,7 +353,7 @@ export default function FileBrowser({
       const results = await FileBrowserService.searchFiles(
         currentContents.currentPath,
         searchQuery,
-        mediaOnly
+        mediaOnly,
       );
       setSearchResults(results.results);
     } catch (error) {
@@ -266,15 +369,18 @@ export default function FileBrowser({
   };
 
   const formatFileSize = (bytes: number) => {
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 B';
+    const sizes = ["B", "KB", "MB", "GB"];
+    if (bytes === 0) return "0 B";
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + " " + sizes[i];
   };
 
-  const displayItems = searchResults.length > 0 ? searchResults : currentContents?.items || [];
-  const filteredItems = mediaOnly 
-    ? displayItems.filter(item => item.isDirectory || isMediaFile(item) || isPlaylistFile(item)) 
+  const displayItems =
+    searchResults.length > 0 ? searchResults : currentContents?.items || [];
+  const filteredItems = mediaOnly
+    ? displayItems.filter(
+        (item) => item.isDirectory || isMediaFile(item) || isPlaylistFile(item),
+      )
     : displayItems;
 
   if (compact) {
@@ -333,7 +439,11 @@ export default function FileBrowser({
               />
             </div>
             {searchResults.length > 0 && (
-              <Button variant="ghost" onClick={clearSearch} className="h-7 w-7 p-0">
+              <Button
+                variant="ghost"
+                onClick={clearSearch}
+                className="h-7 w-7 p-0"
+              >
                 <X className="h-3 w-3" />
               </Button>
             )}
@@ -343,7 +453,11 @@ export default function FileBrowser({
         {/* Selected Files Actions */}
         {selectedFiles.size > 0 && (
           <div className="p-2 border-b border-border bg-muted/50">
-            <Button size="sm" onClick={playSelectedFiles} className="h-6 text-xs">
+            <Button
+              size="sm"
+              onClick={playSelectedFiles}
+              className="h-6 text-xs"
+            >
               <Play className="h-3 w-3 mr-1" />
               Play ({selectedFiles.size})
             </Button>
@@ -359,16 +473,17 @@ export default function FileBrowser({
           ) : (
             <div className="p-1">
               {/* System Drives (show only if at root) */}
-              {!currentContents?.currentPath && drives.map((drive) => (
-                <div
-                  key={drive.path}
-                  className="flex items-center p-1 rounded hover:bg-accent cursor-pointer text-xs"
-                  onClick={() => browseDirectory(drive.path)}
-                >
-                  <HardDrive className="h-3 w-3 mr-2 text-muted-foreground flex-shrink-0" />
-                  <span className="flex-1 truncate">{drive.name}</span>
-                </div>
-              ))}
+              {!currentContents?.currentPath &&
+                drives.map((drive) => (
+                  <div
+                    key={drive.path}
+                    className="flex items-center p-1 rounded hover:bg-accent cursor-pointer text-xs"
+                    onClick={() => browseDirectory(drive.path)}
+                  >
+                    <HardDrive className="h-3 w-3 mr-2 text-muted-foreground flex-shrink-0" />
+                    <span className="flex-1 truncate">{drive.name}</span>
+                  </div>
+                ))}
 
               {/* Directory Contents */}
               {filteredItems.map((item) => (
@@ -386,10 +501,8 @@ export default function FileBrowser({
                     }
                   }}
                 >
-                  <div className="flex-shrink-0 mr-2">
-                    {getFileIcon(item)}
-                  </div>
-                  
+                  <div className="flex-shrink-0 mr-2">{getFileIcon(item)}</div>
+
                   <div className="flex-1 min-w-0">
                     <div className="truncate font-medium">{item.name}</div>
                     {!item.isDirectory && (
@@ -398,7 +511,7 @@ export default function FileBrowser({
                       </div>
                     )}
                   </div>
-                  
+
                   {(isMediaFile(item) || isPlaylistFile(item)) && (
                     <div className="flex-shrink-0 ml-1">
                       {isMediaFile(item) && (
@@ -417,7 +530,9 @@ export default function FileBrowser({
 
               {filteredItems.length === 0 && !isLoading && (
                 <div className="text-center text-muted-foreground py-4 text-xs">
-                  {searchResults.length === 0 && searchQuery ? "No files found" : "No items"}
+                  {searchResults.length === 0 && searchQuery
+                    ? "No files found"
+                    : "No items"}
                 </div>
               )}
             </div>
@@ -447,7 +562,7 @@ export default function FileBrowser({
             </Button>
           )}
         </CardTitle>
-        
+
         {/* Navigation Controls */}
         <div className="flex items-center space-x-2">
           <Button
@@ -474,11 +589,7 @@ export default function FileBrowser({
           >
             <ArrowUp className="h-4 w-4" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={navigateHome}
-          >
+          <Button variant="outline" size="icon" onClick={navigateHome}>
             <Home className="h-4 w-4" />
           </Button>
         </div>
@@ -518,7 +629,10 @@ export default function FileBrowser({
         {/* Supported Formats Info */}
         {mediaOnly && (
           <div className="text-xs text-muted-foreground">
-            <p>Supported: MP3, MP4, WebM, MOV, AVI, MKV, WAV, FLAC, AAC, M3U playlists and more</p>
+            <p>
+              Supported: MP3, MP4, WebM, MOV, AVI, MKV, WAV, FLAC, AAC, M3U
+              playlists and more
+            </p>
           </div>
         )}
       </CardHeader>
@@ -532,17 +646,20 @@ export default function FileBrowser({
           ) : (
             <div className="p-4 space-y-1">
               {/* System Drives (show only if at root) */}
-              {!currentContents?.currentPath && drives.map((drive) => (
-                <div
-                  key={drive.path}
-                  className="flex items-center p-2 rounded hover:bg-accent cursor-pointer"
-                  onClick={() => browseDirectory(drive.path)}
-                >
-                  <HardDrive className="h-4 w-4 mr-3 text-muted-foreground" />
-                  <span className="flex-1">{drive.name}</span>
-                  <span className="text-xs text-muted-foreground">{drive.type}</span>
-                </div>
-              ))}
+              {!currentContents?.currentPath &&
+                drives.map((drive) => (
+                  <div
+                    key={drive.path}
+                    className="flex items-center p-2 rounded hover:bg-accent cursor-pointer"
+                    onClick={() => browseDirectory(drive.path)}
+                  >
+                    <HardDrive className="h-4 w-4 mr-3 text-muted-foreground" />
+                    <span className="flex-1">{drive.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {drive.type}
+                    </span>
+                  </div>
+                ))}
 
               {/* Directory Contents */}
               {filteredItems.map((item) => (
@@ -561,20 +678,24 @@ export default function FileBrowser({
                   }}
                 >
                   {getFileIcon(item)}
-                  
+
                   <div className="flex-1 min-w-0 ml-3">
                     <div className="truncate">{item.name}</div>
                     {!item.isDirectory && (
                       <div className="text-xs text-muted-foreground flex items-center space-x-2">
                         <span>{formatFileSize(item.size)}</span>
-                        <span className="uppercase">{item.extension.replace('.', '')}</span>
+                        <span className="uppercase">
+                          {item.extension.replace(".", "")}
+                        </span>
                         {isPlaylistFile(item) && (
-                          <span className="text-orange-600 dark:text-orange-400">Playlist</span>
+                          <span className="text-orange-600 dark:text-orange-400">
+                            Playlist
+                          </span>
                         )}
                       </div>
                     )}
                   </div>
-                  
+
                   {(isMediaFile(item) || isPlaylistFile(item)) && (
                     <div className="flex items-center space-x-2">
                       {isPlaylistFile(item) && (
@@ -606,7 +727,9 @@ export default function FileBrowser({
 
               {filteredItems.length === 0 && !isLoading && (
                 <div className="text-center text-muted-foreground py-8">
-                  {searchResults.length === 0 && searchQuery ? "No files found" : "No items in this directory"}
+                  {searchResults.length === 0 && searchQuery
+                    ? "No files found"
+                    : "No items in this directory"}
                 </div>
               )}
             </div>

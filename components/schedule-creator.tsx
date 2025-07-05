@@ -29,7 +29,10 @@ import { useToast } from "@/hooks/use-toast";
 import { generatePlaylistFilenames } from "@/lib/playlist-utils";
 import { ICalendarEvent } from "@/models/calendar-event.model";
 import { ActionType, ScheduledAction } from "@/models/scheduled-action.model";
-import { PlaylistService, PlaylistCheckResult } from "@/services/playlist.service";
+import {
+  PlaylistCheckResult,
+  PlaylistService,
+} from "@/services/playlist.service";
 import { ScheduledActionService } from "@/services/scheduler.service";
 import { WebSocketService } from "@/services/web-socket.service";
 import { format } from "date-fns";
@@ -37,6 +40,7 @@ import {
   Calendar,
   CheckCircle,
   Clock,
+  ExternalLink,
   FileMusic,
   Pause,
   Play,
@@ -46,7 +50,6 @@ import {
   Square,
   Trash2,
   XCircle,
-  ExternalLink,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -63,12 +66,16 @@ interface ScheduledActionWithPlaylist extends ScheduledAction {
 }
 
 export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
-  const [scheduledActions, setScheduledActions] = useState<ScheduledActionWithPlaylist[]>([]);
+  const [scheduledActions, setScheduledActions] = useState<
+    ScheduledActionWithPlaylist[]
+  >([]);
   const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [actionType, setActionType] = useState<ActionType>("play");
   const [actionTime, setActionTime] = useState<string>("");
   const [isDaily, setIsDaily] = useState(true);
-  const [executingActions, setExecutingActions] = useState<Set<string>>(new Set());
+  const [executingActions, setExecutingActions] = useState<Set<string>>(
+    new Set(),
+  );
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
   const { toast } = useToast();
 
@@ -77,7 +84,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     try {
       const response = await ScheduledActionService.getAllScheduledActions();
       setScheduledActions(response);
-      
+
       // Check playlist availability for each action
       await checkPlaylistAvailability(response);
     } catch (error) {
@@ -95,21 +102,25 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     setIsLoadingPlaylists(true);
     try {
       const actionsWithPlaylistStatus: ScheduledActionWithPlaylist[] = [];
-      
+
       for (const action of actions) {
         let playlistStatus = undefined;
-        
+
         // Only check for play actions that have an event name
         if (action.actionType === "play" && action.eventName) {
           try {
-            const result: PlaylistCheckResult = await PlaylistService.checkPlaylistExists(action.eventName);
+            const result: PlaylistCheckResult =
+              await PlaylistService.checkPlaylistExists(action.eventName);
             playlistStatus = {
               found: result.found,
-              availableFiles: result.data.map(p => p.name),
+              availableFiles: result.data.map((p) => p.name),
               searchedFor: result.searchedFor,
             };
           } catch (error) {
-            console.error(`Error checking playlist for ${action.eventName}:`, error);
+            console.error(
+              `Error checking playlist for ${action.eventName}:`,
+              error,
+            );
             playlistStatus = {
               found: false,
               availableFiles: [],
@@ -117,13 +128,13 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
             };
           }
         }
-        
+
         actionsWithPlaylistStatus.push({
           ...action,
           playlistStatus,
         });
       }
-      
+
       setScheduledActions(actionsWithPlaylistStatus);
     } catch (error) {
       console.error("Error checking playlist availability:", error);
@@ -161,7 +172,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
       if (!timeRegex.test(actionTime)) {
         toast({
           title: "Invalid time format",
-          description: "Please use HH:MM or HH:MM:SS format (e.g., 14:30 or 14:30:45)",
+          description:
+            "Please use HH:MM or HH:MM:SS format (e.g., 14:30 or 14:30:45)",
           variant: "destructive",
         });
         return;
@@ -169,8 +181,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
 
       // Ensure seconds are included (default to :00 if not provided)
       let formattedTime = actionTime;
-      if (actionTime.split(':').length === 2) {
-        formattedTime += ':00';
+      if (actionTime.split(":").length === 2) {
+        formattedTime += ":00";
       }
 
       let newAction: ScheduledAction = {
@@ -188,15 +200,15 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
           const hours = parseInt(timeParts[0]);
           const minutes = parseInt(timeParts[1]);
           const seconds = parseInt(timeParts[2]);
-          
+
           let actionDate: number | Date = new Date(
-            (event.start as number) * 1000
+            (event.start as number) * 1000,
           );
           actionDate.setHours(hours, minutes, seconds, 0);
-          
+
           // Convert to seconds
           const actionDateSeconds = Math.floor(actionDate.getTime() / 1000);
-          
+
           // Validate time is within event duration
           if (
             actionDateSeconds < event.start ||
@@ -285,22 +297,25 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     }
 
     // Add to executing set
-    setExecutingActions(prev => new Set(prev).add(action.id!));
+    setExecutingActions((prev) => new Set(prev).add(action.id!));
 
     try {
       console.log("🎯 Executing scheduled action manually:", action);
 
       // Call the backend API to execute the action
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082/api"}/scheduler/execute/${action.id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082/api"}/scheduler/execute/${action.id}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            actionType: action.actionType,
+            eventName: action.eventName,
+          }),
         },
-        body: JSON.stringify({
-          actionType: action.actionType,
-          eventName: action.eventName,
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -309,7 +324,9 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
       const result = await response.json();
 
       toast({
-        title: result.success ? "Action executed successfully" : "Action execution failed",
+        title: result.success
+          ? "Action executed successfully"
+          : "Action execution failed",
         description: result.message,
         variant: result.success ? "default" : "destructive",
       });
@@ -329,7 +346,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
       });
     } finally {
       // Remove from executing set
-      setExecutingActions(prev => {
+      setExecutingActions((prev) => {
         const newSet = new Set(prev);
         newSet.delete(action.id!);
         return newSet;
@@ -382,9 +399,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
           </TooltipTrigger>
           <TooltipContent className="max-w-sm">
             <div className="space-y-2">
-              <p className="font-semibold">
-                Playlist for: {searchedFor}
-              </p>
+              <p className="font-semibold">Playlist for: {searchedFor}</p>
               {found ? (
                 <div>
                   <p className="text-sm text-green-600 dark:text-green-400">
@@ -461,7 +476,11 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
             <div className="flex items-center justify-between">
               <div>Schedule Media Actions</div>
               <div className="flex items-center space-x-2">
-                <Button onClick={handleOpenMediaPlayer} variant="outline" size="sm">
+                <Button
+                  onClick={handleOpenMediaPlayer}
+                  variant="outline"
+                  size="sm"
+                >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open Media Player
                 </Button>
@@ -556,10 +575,11 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                 </Button>
               </div>
             </div>
-            
+
             {/* Time format help text */}
             <div className="text-xs text-muted-foreground">
-              💡 Time format: HH:MM:SS (e.g., 14:30:45) or HH:MM (seconds default to :00)
+              💡 Time format: HH:MM:SS (e.g., 14:30:45) or HH:MM (seconds
+              default to :00)
             </div>
           </div>
         </CardContent>
@@ -608,9 +628,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="font-mono text-sm">
-                        {action.time}
-                      </span>
+                      <span className="font-mono text-sm">{action.time}</span>
                     </TableCell>
                     <TableCell>
                       <span className="flex items-center">
@@ -631,16 +649,12 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                     </TableCell>
                     <TableCell>
                       {action.eventName ? (
-                        <span className="font-medium">
-                          {action.eventName}
-                        </span>
+                        <span className="font-medium">{action.eventName}</span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {renderPlaylistStatus(action)}
-                    </TableCell>
+                    <TableCell>{renderPlaylistStatus(action)}</TableCell>
                     <TableCell>
                       {action.lastRun ? (
                         formatTimestamp(action.lastRun)

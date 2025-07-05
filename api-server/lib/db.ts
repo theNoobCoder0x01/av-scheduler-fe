@@ -1,8 +1,8 @@
+import fs from "fs";
 import path from "path";
 import { Database, open } from "sqlite";
 import sqlite3 from "sqlite3";
 import { APP_CONFIG_DIR } from "./settings";
-import fs from "fs";
 
 let db: Database | null = null;
 let isDBInitialized = false;

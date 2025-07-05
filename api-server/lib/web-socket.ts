@@ -12,7 +12,7 @@ export const setupWebSocket = (server: any) => {
       try {
         const data = JSON.parse(message.toString());
         console.log("📨 WebSocket message received:", data);
-        
+
         // Broadcast to all other clients
         broadcast(data, ws);
       } catch (error) {
@@ -29,11 +29,13 @@ export const setupWebSocket = (server: any) => {
     });
 
     // Send welcome message
-    ws.send(JSON.stringify({
-      type: "connection",
-      message: "Connected to BAPS Music Scheduler",
-      timestamp: new Date().toISOString()
-    }));
+    ws.send(
+      JSON.stringify({
+        type: "connection",
+        message: "Connected to BAPS Music Scheduler",
+        timestamp: new Date().toISOString(),
+      }),
+    );
   });
 
   return webSocketServer;
@@ -45,16 +47,23 @@ export const broadcast = (message: any, excludeClient?: WebSocket) => {
     return;
   }
 
-  console.log("📡 Broadcasting to", webSocketServer.clients.size, "clients:", message.type || 'unknown');
-  
+  console.log(
+    "📡 Broadcasting to",
+    webSocketServer.clients.size,
+    "clients:",
+    message.type || "unknown",
+  );
+
   webSocketServer.clients.forEach((client) => {
     // Check if the client is open and not the sender
     if (client.readyState === WebSocket.OPEN && client !== excludeClient) {
       try {
-        client.send(JSON.stringify({
-          ...message,
-          timestamp: new Date().toISOString()
-        }));
+        client.send(
+          JSON.stringify({
+            ...message,
+            timestamp: new Date().toISOString(),
+          }),
+        );
       } catch (error) {
         console.error("❌ Error sending WebSocket message:", error);
       }

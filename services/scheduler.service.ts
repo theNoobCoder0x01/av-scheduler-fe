@@ -8,7 +8,7 @@ export class ScheduledActionService {
   static async getAllScheduledActions(): Promise<ScheduledAction[]> {
     try {
       const { status, data: response } = await axios.get(
-        `${API_BASE_URL}/scheduler`
+        `${API_BASE_URL}/scheduler`,
       );
 
       if (status !== 200) {
@@ -25,7 +25,7 @@ export class ScheduledActionService {
   static async getScheduledActionById(id: string): Promise<ScheduledAction> {
     try {
       const { status, data: response } = await axios.get(
-        `${API_BASE_URL}/scheduler/${id}`
+        `${API_BASE_URL}/scheduler/${id}`,
       );
 
       if (status !== 200) {
@@ -39,12 +39,12 @@ export class ScheduledActionService {
   }
 
   static async createAction(
-    action: Omit<ScheduledAction, "id">
+    action: Omit<ScheduledAction, "id">,
   ): Promise<ScheduledAction> {
     try {
       const { status, data: response } = await axios.post(
         `${API_BASE_URL}/scheduler`,
-        action
+        action,
       );
 
       if (status !== 201) {
@@ -59,12 +59,12 @@ export class ScheduledActionService {
 
   static async updateAction(
     id: string,
-    action: Partial<ScheduledAction>
+    action: Partial<ScheduledAction>,
   ): Promise<ScheduledAction> {
     try {
       const { status, data: response } = await axios.put(
         `${API_BASE_URL}/scheduler/${id}`,
-        action
+        action,
       );
 
       if (status !== 200) {
@@ -79,12 +79,12 @@ export class ScheduledActionService {
 
   static async patchAction(
     id: string,
-    action: Partial<ScheduledAction>
+    action: Partial<ScheduledAction>,
   ): Promise<ScheduledAction> {
     try {
       const { status, data: response } = await axios.patch(
         `${API_BASE_URL}/scheduler/${id}`,
-        action
+        action,
       );
 
       if (status !== 200) {
@@ -100,7 +100,7 @@ export class ScheduledActionService {
   static async deleteAction(id: string): Promise<void> {
     try {
       const { status, data: response } = await axios.delete(
-        `${API_BASE_URL}/scheduler/${id}`
+        `${API_BASE_URL}/scheduler/${id}`,
       );
 
       if (status !== 200) {

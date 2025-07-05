@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function isFullDayEvent(
   startDate: number | Date,
-  endDate: number | Date
+  endDate: number | Date,
 ): boolean {
   if (typeof startDate === "number") {
     startDate = new Date(startDate * 1000); // Convert seconds to milliseconds

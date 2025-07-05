@@ -1,18 +1,18 @@
 "use client";
 
+import SettingsForm from "@/components/settings-form";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Clock, Github, HelpCircle, Settings, Play } from "lucide-react";
+import { Clock, Github, HelpCircle, Play, Settings } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import SettingsForm from "@/components/settings-form";
 
 export default function Header() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -76,7 +76,11 @@ export default function Header() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={handleOpenMediaPlayer}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleOpenMediaPlayer}
+                >
                   <Play className="h-[1.2rem] w-[1.2rem]" />
                   <span className="sr-only">Open Media Player</span>
                 </Button>
