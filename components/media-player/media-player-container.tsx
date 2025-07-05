@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { PlaylistService } from "@/services/playlist.service";
 import { WebSocketService } from "@/services/web-socket.service";
@@ -36,6 +36,12 @@ export default function MediaPlayerContainer({
   const [currentPlaylistName, setCurrentPlaylistName] = useState<string>("");
   const [shouldAutoPlay, setShouldAutoPlay] = useState(autoPlay);
   const { toast } = useToast();
+
+  // Check if a file is a playlist file
+  const isPlaylistFile = (filePath: string): boolean => {
+    const ext = filePath.split(".").pop()?.toLowerCase();
+    return ext === "m3u" || ext === "m3u8" || ext === "pls";
+  };
 
   // Load playlist from M3U file
   const loadPlaylistFromFile = async (
@@ -85,10 +91,30 @@ export default function MediaPlayerContainer({
     }
   };
 
-  // Load playlist on mount if provided
+  // Load single media file
+  const loadSingleFile = (filePath: string, autoPlayFlag: boolean = false) => {
+    console.log("🎵 Loading single media file:", filePath);
+    
+    setCurrentTracks([filePath]);
+    setCurrentTrackIndex(0);
+    setCurrentPlaylistName("");
+    setShouldAutoPlay(autoPlayFlag);
+
+    const fileName = filePath.split("/").pop() || filePath;
+    toast({
+      title: "Media file loaded",
+      description: `Loaded: ${fileName}`,
+    });
+  };
+
+  // Load media on mount if provided
   useEffect(() => {
     if (playlistPath) {
-      loadPlaylistFromFile(playlistPath, autoPlay);
+      if (isPlaylistFile(playlistPath)) {
+        loadPlaylistFromFile(playlistPath, autoPlay);
+      } else {
+        loadSingleFile(playlistPath, autoPlay);
+      }
     }
   }, [playlistPath, autoPlay]);
 
@@ -101,7 +127,11 @@ export default function MediaPlayerContainer({
         switch (data.command) {
           case "loadAndPlay":
             if (data.data?.playlistPath) {
-              loadPlaylistFromFile(data.data.playlistPath, true);
+              if (isPlaylistFile(data.data.playlistPath)) {
+                loadPlaylistFromFile(data.data.playlistPath, true);
+              } else {
+                loadSingleFile(data.data.playlistPath, true);
+              }
             }
             break;
           case "pause":
@@ -127,10 +157,11 @@ export default function MediaPlayerContainer({
     if (onFileSelect) {
       onFileSelect(filePath);
     } else {
-      setCurrentTracks([filePath]);
-      setCurrentTrackIndex(0);
-      setCurrentPlaylistName("");
-      setShouldAutoPlay(false);
+      if (isPlaylistFile(filePath)) {
+        loadPlaylistFromFile(filePath, false);
+      } else {
+        loadSingleFile(filePath, false);
+      }
     }
   };
 
@@ -142,6 +173,11 @@ export default function MediaPlayerContainer({
       setCurrentTrackIndex(0);
       setCurrentPlaylistName("");
       setShouldAutoPlay(false);
+
+      toast({
+        title: "Playlist created",
+        description: `Created playlist with ${files.length} tracks`,
+      });
     }
   };
 
@@ -274,7 +310,9 @@ export default function MediaPlayerContainer({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Current Playlist</span>
+              <span>
+                {currentTracks.length === 1 ? "Current Track" : "Current Playlist"}
+              </span>
               {currentPlaylistName && (
                 <span className="text-sm text-muted-foreground">
                   {currentPlaylistName}
