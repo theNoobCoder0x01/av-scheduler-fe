@@ -376,6 +376,7 @@ export default function PlaylistCreator({ events, onPlaylistCreated }: PlaylistC
               onFileSelect={handleFileSelect}
               onPlaylistSelect={handlePlaylistSelect}
               mediaOnly={true}
+              compact={false}
             />
           </CardContent>
         </Card>

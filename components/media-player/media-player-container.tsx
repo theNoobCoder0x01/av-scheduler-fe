@@ -16,9 +16,20 @@ import { useToast } from "@/hooks/use-toast";
 interface MediaPlayerContainerProps {
   playlistPath?: string;
   autoPlay?: boolean;
+  showFileExplorerOnly?: boolean;
+  onFileSelect?: (filePath: string) => void;
+  onPlaylistSelect?: (files: string[]) => void;
+  onPlaylistFileSelect?: (playlistPath: string) => void;
 }
 
-export default function MediaPlayerContainer({ playlistPath, autoPlay = false }: MediaPlayerContainerProps) {
+export default function MediaPlayerContainer({ 
+  playlistPath, 
+  autoPlay = false,
+  showFileExplorerOnly = false,
+  onFileSelect,
+  onPlaylistSelect,
+  onPlaylistFileSelect
+}: MediaPlayerContainerProps) {
   const [currentTracks, setCurrentTracks] = useState<string[]>([]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [playerMode, setPlayerMode] = useState<"built-in" | "vlc">("built-in");
@@ -109,26 +120,51 @@ export default function MediaPlayerContainer({ playlistPath, autoPlay = false }:
   }, []);
 
   const handleFileSelect = (filePath: string) => {
-    setCurrentTracks([filePath]);
-    setCurrentTrackIndex(0);
-    setCurrentPlaylistName("");
-    setShouldAutoPlay(false);
+    if (onFileSelect) {
+      onFileSelect(filePath);
+    } else {
+      setCurrentTracks([filePath]);
+      setCurrentTrackIndex(0);
+      setCurrentPlaylistName("");
+      setShouldAutoPlay(false);
+    }
   };
 
   const handlePlaylistSelect = (files: string[]) => {
-    setCurrentTracks(files);
-    setCurrentTrackIndex(0);
-    setCurrentPlaylistName("");
-    setShouldAutoPlay(false);
+    if (onPlaylistSelect) {
+      onPlaylistSelect(files);
+    } else {
+      setCurrentTracks(files);
+      setCurrentTrackIndex(0);
+      setCurrentPlaylistName("");
+      setShouldAutoPlay(false);
+    }
   };
 
   const handlePlaylistFileSelect = async (playlistPath: string) => {
-    await loadPlaylistFromFile(playlistPath, false);
+    if (onPlaylistFileSelect) {
+      onPlaylistFileSelect(playlistPath);
+    } else {
+      await loadPlaylistFromFile(playlistPath, false);
+    }
   };
 
   const handleTrackChange = (track: string, index: number) => {
     setCurrentTrackIndex(index);
   };
+
+  // If only showing file explorer, return compact version
+  if (showFileExplorerOnly) {
+    return (
+      <FileBrowser
+        onFileSelect={handleFileSelect}
+        onPlaylistSelect={handlePlaylistSelect}
+        onPlaylistFileSelect={handlePlaylistFileSelect}
+        mediaOnly={true}
+        compact={true}
+      />
+    );
+  }
 
   // Determine which player to use based on file type and user preference
   const getPlayerComponent = () => {
@@ -256,6 +292,7 @@ export default function MediaPlayerContainer({ playlistPath, autoPlay = false }:
             onPlaylistSelect={handlePlaylistSelect}
             onPlaylistFileSelect={handlePlaylistFileSelect}
             mediaOnly={true}
+            compact={false}
           />
 
           {/* Media Player */}

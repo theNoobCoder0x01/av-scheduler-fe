@@ -23,7 +23,8 @@ import {
   Play,
   Search,
   Video,
-  FileMusic
+  FileMusic,
+  ArrowUp
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -32,13 +33,15 @@ interface FileBrowserProps {
   onPlaylistSelect?: (files: string[]) => void;
   onPlaylistFileSelect?: (playlistPath: string) => void;
   mediaOnly?: boolean;
+  compact?: boolean;
 }
 
 export default function FileBrowser({ 
   onFileSelect, 
   onPlaylistSelect, 
   onPlaylistFileSelect,
-  mediaOnly = false 
+  mediaOnly = false,
+  compact = false
 }: FileBrowserProps) {
   const [currentContents, setCurrentContents] = useState<DirectoryContents | null>(null);
   const [drives, setDrives] = useState<SystemDrive[]>([]);
@@ -91,12 +94,22 @@ export default function FileBrowser({
       const contents = await FileBrowserService.browseDirectory(path);
       setCurrentContents(contents);
       
-      // Update navigation history
-      if (path && path !== navigationHistory[historyIndex]) {
+      // Update navigation history properly
+      if (path) {
+        // Remove any forward history when navigating to a new path
         const newHistory = navigationHistory.slice(0, historyIndex + 1);
-        newHistory.push(path);
-        setNavigationHistory(newHistory);
-        setHistoryIndex(newHistory.length - 1);
+        
+        // Only add to history if it's different from the current path
+        if (newHistory[newHistory.length - 1] !== path) {
+          newHistory.push(path);
+          setNavigationHistory(newHistory);
+          setHistoryIndex(newHistory.length - 1);
+        }
+      } else if (navigationHistory.length === 0) {
+        // Initialize history with home directory
+        const homeDir = contents.currentPath;
+        setNavigationHistory([homeDir]);
+        setHistoryIndex(0);
       }
     } catch (error) {
       console.error("Error browsing directory:", error);
@@ -109,7 +122,15 @@ export default function FileBrowser({
     if (historyIndex > 0) {
       const previousPath = navigationHistory[historyIndex - 1];
       setHistoryIndex(historyIndex - 1);
-      browseDirectory(previousPath);
+      // Don't add to history when navigating back
+      setIsLoading(true);
+      FileBrowserService.browseDirectory(previousPath).then(contents => {
+        setCurrentContents(contents);
+        setIsLoading(false);
+      }).catch(error => {
+        console.error("Error navigating back:", error);
+        setIsLoading(false);
+      });
     }
   };
 
@@ -117,13 +138,35 @@ export default function FileBrowser({
     if (historyIndex < navigationHistory.length - 1) {
       const nextPath = navigationHistory[historyIndex + 1];
       setHistoryIndex(historyIndex + 1);
-      browseDirectory(nextPath);
+      // Don't add to history when navigating forward
+      setIsLoading(true);
+      FileBrowserService.browseDirectory(nextPath).then(contents => {
+        setCurrentContents(contents);
+        setIsLoading(false);
+      }).catch(error => {
+        console.error("Error navigating forward:", error);
+        setIsLoading(false);
+      });
     }
   };
 
   const navigateUp = () => {
     if (currentContents?.parentPath) {
       browseDirectory(currentContents.parentPath);
+    }
+  };
+
+  const navigateHome = () => {
+    // Navigate to user's home directory
+    const homeDir = drives.find(drive => drive.type === 'folder' && drive.name === 'Home');
+    if (homeDir) {
+      browseDirectory(homeDir.path);
+    } else {
+      // Fallback to root or first available drive
+      const firstDrive = drives[0];
+      if (firstDrive) {
+        browseDirectory(firstDrive.path);
+      }
     }
   };
 
@@ -139,20 +182,20 @@ export default function FileBrowser({
 
   const getFileIcon = (item: FileItem) => {
     if (item.isDirectory) {
-      return <Folder className="h-4 w-4 text-blue-500" />;
+      return <Folder className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-blue-500`} />;
     }
     
     const ext = item.extension.toLowerCase().replace('.', '');
     const videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'wmv', 'flv', '3gp', 'm4v', 'mpg', 'mpeg', 'ogv'];
     
     if (playlistExtensions.includes(ext)) {
-      return <FileMusic className="h-4 w-4 text-orange-500" />;
+      return <FileMusic className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-orange-500`} />;
     } else if (videoExtensions.includes(ext)) {
-      return <Video className="h-4 w-4 text-purple-500" />;
+      return <Video className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-purple-500`} />;
     } else if (isMediaFile(item)) {
-      return <Music className="h-4 w-4 text-green-500" />;
+      return <Music className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-green-500`} />;
     } else {
-      return <File className="h-4 w-4 text-muted-foreground" />;
+      return <File className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />;
     }
   };
 
@@ -234,6 +277,164 @@ export default function FileBrowser({
     ? displayItems.filter(item => item.isDirectory || isMediaFile(item) || isPlaylistFile(item)) 
     : displayItems;
 
+  if (compact) {
+    return (
+      <div className="h-full flex flex-col bg-background">
+        {/* Compact Navigation */}
+        <div className="flex items-center space-x-1 p-2 border-b border-border bg-muted/30">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={navigateBack}
+            disabled={historyIndex <= 0}
+            className="h-6 w-6 p-0"
+          >
+            <ChevronLeft className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={navigateForward}
+            disabled={historyIndex >= navigationHistory.length - 1}
+            className="h-6 w-6 p-0"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={navigateUp}
+            disabled={!currentContents?.parentPath}
+            className="h-6 w-6 p-0"
+          >
+            <ArrowUp className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={navigateHome}
+            className="h-6 w-6 p-0"
+          >
+            <Home className="h-3 w-3" />
+          </Button>
+        </div>
+
+        {/* Compact Search */}
+        <div className="p-2 border-b border-border">
+          <div className="flex space-x-1">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && searchFiles()}
+                className="pl-7 h-7 text-xs"
+              />
+            </div>
+            {searchResults.length > 0 && (
+              <Button variant="ghost" onClick={clearSearch} className="h-7 w-7 p-0">
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Selected Files Actions */}
+        {selectedFiles.size > 0 && (
+          <div className="p-2 border-b border-border bg-muted/50">
+            <Button size="sm" onClick={playSelectedFiles} className="h-6 text-xs">
+              <Play className="h-3 w-3 mr-1" />
+              Play ({selectedFiles.size})
+            </Button>
+          </div>
+        )}
+
+        {/* Compact File List */}
+        <ScrollArea className="flex-1">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-20">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            </div>
+          ) : (
+            <div className="p-1">
+              {/* System Drives (show only if at root) */}
+              {!currentContents?.currentPath && drives.map((drive) => (
+                <div
+                  key={drive.path}
+                  className="flex items-center p-1 rounded hover:bg-accent cursor-pointer text-xs"
+                  onClick={() => browseDirectory(drive.path)}
+                >
+                  <HardDrive className="h-3 w-3 mr-2 text-muted-foreground flex-shrink-0" />
+                  <span className="flex-1 truncate">{drive.name}</span>
+                </div>
+              ))}
+
+              {/* Directory Contents */}
+              {filteredItems.map((item) => (
+                <div
+                  key={item.path}
+                  className={`flex items-center p-1 rounded hover:bg-accent cursor-pointer text-xs ${
+                    selectedFiles.has(item.path) ? "bg-accent" : ""
+                  }`}
+                  onClick={() => handleItemClick(item)}
+                  onDoubleClick={() => handleItemDoubleClick(item)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    if (isMediaFile(item)) {
+                      toggleFileSelection(item.path);
+                    }
+                  }}
+                >
+                  <div className="flex-shrink-0 mr-2">
+                    {getFileIcon(item)}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate font-medium">{item.name}</div>
+                    {!item.isDirectory && (
+                      <div className="text-xs text-muted-foreground truncate">
+                        {formatFileSize(item.size)}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {(isMediaFile(item) || isPlaylistFile(item)) && (
+                    <div className="flex-shrink-0 ml-1">
+                      {isMediaFile(item) && (
+                        <input
+                          type="checkbox"
+                          checked={selectedFiles.has(item.path)}
+                          onChange={() => toggleFileSelection(item.path)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-3 h-3"
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {filteredItems.length === 0 && !isLoading && (
+                <div className="text-center text-muted-foreground py-4 text-xs">
+                  {searchResults.length === 0 && searchQuery ? "No files found" : "No items"}
+                </div>
+              )}
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Current Path */}
+        <div className="p-2 border-t border-border bg-muted/30">
+          <div className="text-xs text-muted-foreground truncate">
+            {currentContents?.currentPath || "Loading..."}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Regular (non-compact) file browser
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-3 flex-shrink-0">
@@ -270,6 +471,13 @@ export default function FileBrowser({
             size="icon"
             onClick={navigateUp}
             disabled={!currentContents?.parentPath}
+          >
+            <ArrowUp className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={navigateHome}
           >
             <Home className="h-4 w-4" />
           </Button>
