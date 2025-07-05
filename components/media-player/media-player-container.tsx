@@ -46,14 +46,13 @@ export default function MediaPlayerContainer({
   // Load playlist from M3U file
   const loadPlaylistFromFile = async (
     filePath: string,
-    autoPlayFlag: boolean = false
+    autoPlayFlag: boolean = false,
   ) => {
     try {
       console.log("🎵 Loading playlist from file:", filePath);
 
-      const playlistContent = await PlaylistService.loadPlaylistContent(
-        filePath
-      );
+      const playlistContent =
+        await PlaylistService.loadPlaylistContent(filePath);
 
       if (playlistContent.tracks.length === 0) {
         toast({
@@ -94,7 +93,7 @@ export default function MediaPlayerContainer({
   // Load single media file
   const loadSingleFile = (filePath: string, autoPlayFlag: boolean = false) => {
     console.log("🎵 Loading single media file:", filePath);
-    
+
     setCurrentTracks([filePath]);
     setCurrentTrackIndex(0);
     setCurrentPlaylistName("");
@@ -311,7 +310,9 @@ export default function MediaPlayerContainer({
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>
-                {currentTracks.length === 1 ? "Current Track" : "Current Playlist"}
+                {currentTracks.length === 1
+                  ? "Current Track"
+                  : "Current Playlist"}
               </span>
               {currentPlaylistName && (
                 <span className="text-sm text-muted-foreground">

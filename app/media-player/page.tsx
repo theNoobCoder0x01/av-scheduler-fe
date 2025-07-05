@@ -25,7 +25,7 @@ export default function MediaPlayerPage() {
       "🎵 URL params - playlist:",
       playlist,
       "autoPlay:",
-      autoPlayParam
+      autoPlayParam,
     );
 
     if (playlist) {
@@ -43,7 +43,7 @@ export default function MediaPlayerPage() {
           console.log("🎵 Received playlist from Electron:", data);
           setPlaylistPath(data.playlistPath);
           setAutoPlay(data.autoPlay);
-        }
+        },
       );
 
       // Cleanup listeners on unmount
@@ -71,7 +71,7 @@ export default function MediaPlayerPage() {
             if (data.data?.playlistPath) {
               console.log(
                 "📡 Loading and playing playlist:",
-                data.data.playlistPath
+                data.data.playlistPath,
               );
               setPlaylistPath(data.data.playlistPath);
               setAutoPlay(true);
@@ -113,7 +113,7 @@ export default function MediaPlayerPage() {
     "🎵 Rendering media player page with playlist:",
     playlistPath,
     "autoPlay:",
-    autoPlay
+    autoPlay,
   );
 
   return (

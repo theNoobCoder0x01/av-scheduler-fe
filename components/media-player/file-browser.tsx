@@ -10,23 +10,21 @@ import {
   FileItem,
   SystemDrive,
 } from "@/services/file-browser.service";
-import { PlaylistService } from "@/services/playlist.service";
 import {
+  ArrowUp,
   ChevronLeft,
   ChevronRight,
   File,
+  FileMusic,
   Folder,
-  FolderOpen,
   HardDrive,
   Home,
   Music,
   Play,
   Search,
   Video,
-  FileMusic,
-  ArrowUp,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 interface FileBrowserProps {
   onFileSelect?: (filePath: string) => void;
