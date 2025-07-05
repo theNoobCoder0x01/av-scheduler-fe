@@ -5,11 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WebSocketService } from "@/services/web-socket.service";
 import { 
-  ArrowLeft, 
   Music, 
   FolderOpen, 
-  FileMusic, 
-  Settings,
   Minimize,
   Maximize,
   X
@@ -115,11 +112,7 @@ export default function MediaPlayerPage() {
   };
 
   const handleOpenFile = () => {
-    setShowFileExplorer(true);
-  };
-
-  const handleOpenPlaylist = () => {
-    setShowFileExplorer(true);
+    setShowFileExplorer(!showFileExplorer);
   };
 
   console.log("🎵 Rendering media player page with playlist:", playlistPath, "autoPlay:", autoPlay);
@@ -128,25 +121,24 @@ export default function MediaPlayerPage() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Mac-style Menu Bar */}
       <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 py-2 text-sm">
-        {/* Left side - App controls */}
+        {/* Left side - Traffic light buttons */}
         <div className="flex items-center space-x-3">
-          {/* Traffic light buttons */}
           <div className="flex items-center space-x-2">
             <button 
               onClick={handleClose}
-              className="w-3 h-3 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center group"
+              className="w-3 h-3 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center group transition-colors"
             >
               <X className="w-2 h-2 text-red-800 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
             <button 
               onClick={handleMinimize}
-              className="w-3 h-3 bg-yellow-500 hover:bg-yellow-600 rounded-full flex items-center justify-center group"
+              className="w-3 h-3 bg-yellow-500 hover:bg-yellow-600 rounded-full flex items-center justify-center group transition-colors"
             >
               <Minimize className="w-2 h-2 text-yellow-800 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
             <button 
               onClick={handleMaximize}
-              className="w-3 h-3 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center group"
+              className="w-3 h-3 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center group transition-colors"
             >
               <Maximize className="w-2 h-2 text-green-800 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
@@ -157,28 +149,21 @@ export default function MediaPlayerPage() {
         </div>
 
         {/* Center - Menu items */}
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center">
           <button 
             onClick={handleOpenFile}
-            className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            className={`flex items-center space-x-2 px-3 py-1 rounded transition-colors ${
+              showFileExplorer 
+                ? 'bg-blue-500 text-white' 
+                : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
           >
             <FolderOpen className="w-4 h-4" />
             <span>Open File</span>
           </button>
-          <button 
-            onClick={handleOpenPlaylist}
-            className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          >
-            <FileMusic className="w-4 h-4" />
-            <span>Open Playlist</span>
-          </button>
-          <button className="flex items-center space-x-1 px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-            <Settings className="w-4 h-4" />
-            <span>Preferences</span>
-          </button>
         </div>
 
-        {/* Right side - Window controls (optional) */}
+        {/* Right side - Empty space for balance */}
         <div className="w-20"></div>
       </div>
 
@@ -187,7 +172,7 @@ export default function MediaPlayerPage() {
         {/* File Explorer Sidebar (when shown) */}
         {showFileExplorer && (
           <div className="w-80 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-            <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <span className="text-sm font-medium">File Explorer</span>
               <Button 
                 variant="ghost" 
@@ -209,7 +194,7 @@ export default function MediaPlayerPage() {
                   setShowFileExplorer(false);
                 }}
                 onPlaylistSelect={(files) => {
-                  // Handle multiple file selection
+                  // Handle multiple file selection - create a temporary playlist
                   if (files.length > 0) {
                     setPlaylistPath(files[0]);
                     setAutoPlay(false);
@@ -229,22 +214,24 @@ export default function MediaPlayerPage() {
         {/* Media Player Area */}
         <div className="flex-1 flex flex-col">
           {playlistPath ? (
-            <div className="flex-1 p-4">
-              <div className="mb-4">
+            <div className="flex-1 p-6">
+              <div className="mb-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <Music className="h-5 w-5" />
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Music className="h-6 w-6" />
                       Now Playing
                     </h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground mt-1">
                       {playlistPath.split('/').pop()}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {playlistPath}
                     </p>
                   </div>
                   {!showFileExplorer && (
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={() => setShowFileExplorer(true)}
                     >
                       <FolderOpen className="h-4 w-4 mr-2" />
@@ -253,7 +240,7 @@ export default function MediaPlayerPage() {
                   )}
                 </div>
                 {autoPlay && (
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-2">
                     ▶️ Auto-playing from scheduler
                   </p>
                 )}
@@ -267,23 +254,17 @@ export default function MediaPlayerPage() {
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <Card className="w-full max-w-md mx-4">
-                <CardContent className="flex flex-col items-center justify-center p-8">
-                  <Music className="h-16 w-16 text-muted-foreground mb-4" />
-                  <h2 className="text-xl font-semibold mb-2">No Media Loaded</h2>
-                  <p className="text-muted-foreground text-center mb-4">
-                    Open a file or playlist to start playing media.
+              <Card className="w-full max-w-lg mx-6">
+                <CardContent className="flex flex-col items-center justify-center p-12">
+                  <Music className="h-20 w-20 text-muted-foreground mb-6" />
+                  <h2 className="text-2xl font-semibold mb-3">No Media Loaded</h2>
+                  <p className="text-muted-foreground text-center mb-6">
+                    Click "Open File" in the menu bar to browse and select media files or playlists to start playing.
                   </p>
-                  <div className="flex gap-2">
-                    <Button onClick={handleOpenFile} variant="default">
-                      <FolderOpen className="h-4 w-4 mr-2" />
-                      Open File
-                    </Button>
-                    <Button onClick={handleOpenPlaylist} variant="outline">
-                      <FileMusic className="h-4 w-4 mr-2" />
-                      Open Playlist
-                    </Button>
-                  </div>
+                  <Button onClick={handleOpenFile} size="lg">
+                    <FolderOpen className="h-5 w-5 mr-2" />
+                    Open File
+                  </Button>
                 </CardContent>
               </Card>
             </div>
