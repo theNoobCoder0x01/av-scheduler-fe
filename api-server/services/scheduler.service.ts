@@ -13,6 +13,10 @@ export class SchedulerService {
         sa.time,
         sa.date,
         sa.is_daily,
+        sa.timezone,
+        sa.is_active,
+        sa.retry_count,
+        sa.max_retries,
         sa.last_run,
         sa.next_run,
         sa.created_at,
@@ -76,8 +80,8 @@ export class SchedulerService {
 
     const dbResponse = await execute(
       `
-        INSERT INTO scheduled_actions (event_id, event_name, action_type, time, date, is_daily, last_run, next_run, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO scheduled_actions (event_id, event_name, action_type, time, date, is_daily, timezone, is_active, retry_count, max_retries, last_run, next_run, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.eventId,
@@ -86,6 +90,10 @@ export class SchedulerService {
         data.time,
         data.date,
         data.isDaily ? 1 : 0,
+        data.timezone,
+        data.isActive !== false ? 1 : 0,
+        data.retryCount || 0,
+        data.maxRetries || 3,
         data.lastRun,
         nextRun,
         Math.floor(new Date().getTime() / 1000),
@@ -124,6 +132,10 @@ export class SchedulerService {
                 time = ?,
                 date = ?,
                 is_daily = ?,
+                timezone = ?,
+                is_active = ?,
+                retry_count = ?,
+                max_retries = ?,
                 last_run = ?,
                 next_run = ?,
                 updated_at = ?
@@ -136,6 +148,10 @@ export class SchedulerService {
         data.time,
         data.date,
         data.isDaily ? 1 : 0,
+        data.timezone,
+        data.isActive !== false ? 1 : 0,
+        data.retryCount || 0,
+        data.maxRetries || 3,
         data.lastRun,
         data.nextRun,
         Math.floor(new Date().getTime() / 1000),
@@ -193,6 +209,22 @@ export class SchedulerService {
       updateFields.push("is_daily = ?");
       updateValues.push(data.isDaily ? 1 : 0);
     }
+    if (data.timezone !== undefined) {
+      updateFields.push("timezone = ?");
+      updateValues.push(data.timezone);
+    }
+    if (data.isActive !== undefined) {
+      updateFields.push("is_active = ?");
+      updateValues.push(data.isActive ? 1 : 0);
+    }
+    if (data.retryCount !== undefined) {
+      updateFields.push("retry_count = ?");
+      updateValues.push(data.retryCount);
+    }
+    if (data.maxRetries !== undefined) {
+      updateFields.push("max_retries = ?");
+      updateValues.push(data.maxRetries);
+    }
     if (data.lastRun !== undefined) {
       updateFields.push("last_run = ?");
       updateValues.push(data.lastRun);
@@ -242,11 +274,12 @@ export class SchedulerService {
   }
 
   private static async updateScheduler() {
-    actionScheduler.clearAllSchedules();
-    actionScheduler.activeSchedules = this.mapDbResponseToScheduledAction(
-      await query(`SELECT * FROM scheduled_actions`),
-    );
-    actionScheduler.initializeSchedules();
+    try {
+      await actionScheduler.initializeSchedules();
+    } catch (error) {
+      console.error("❌ Failed to update scheduler:", error);
+      throw error;
+    }
   }
 
   private static mapDbResponseToScheduledAction(dbResponse: any) {
@@ -258,6 +291,10 @@ export class SchedulerService {
       time: action.time,
       date: action.date,
       isDaily: action.is_daily === 1,
+      timezone: action.timezone,
+      isActive: action.is_active === 1,
+      retryCount: action.retry_count,
+      maxRetries: action.max_retries,
       lastRun: action.last_run,
       nextRun: action.next_run,
       createdAt: action.created_at,

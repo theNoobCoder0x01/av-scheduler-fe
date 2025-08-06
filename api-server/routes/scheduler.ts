@@ -1,6 +1,7 @@
 import express from "express";
 import { controlVlc } from "../lib/vlc-controller";
 import { SchedulerService } from "../services/scheduler.service";
+import { actionScheduler } from "../lib/scheduler";
 
 const schedulerRoutes = express.Router();
 
@@ -15,6 +16,57 @@ schedulerRoutes.get("/", async (req, res) => {
     console.error("Error fetching scheduled actions:", err);
     res.status(500).json({
       message: "Failed to fetch scheduled actions",
+      error: err.message,
+    });
+  }
+});
+
+// Get scheduler health status
+schedulerRoutes.get("/health", async (req, res) => {
+  try {
+    const healthStatus = actionScheduler.getHealthStatus();
+    res.status(200).json({
+      message: "Scheduler health status retrieved successfully",
+      data: healthStatus,
+    });
+  } catch (err: any) {
+    console.error("Error getting scheduler health:", err);
+    res.status(500).json({
+      message: "Failed to get scheduler health status",
+      error: err.message,
+    });
+  }
+});
+
+// Get scheduler debug information
+schedulerRoutes.get("/debug", async (req, res) => {
+  try {
+    const scheduleInfo = actionScheduler.getScheduleInfo();
+    res.status(200).json({
+      message: "Scheduler debug information retrieved successfully",
+      data: scheduleInfo,
+    });
+  } catch (err: any) {
+    console.error("Error getting scheduler debug info:", err);
+    res.status(500).json({
+      message: "Failed to get scheduler debug information",
+      error: err.message,
+    });
+  }
+});
+
+// Force scheduler reinitialization
+schedulerRoutes.post("/reinitialize", async (req, res) => {
+  try {
+    await actionScheduler.initializeSchedules();
+    res.status(200).json({
+      message: "Scheduler reinitialized successfully",
+      data: actionScheduler.getHealthStatus(),
+    });
+  } catch (err: any) {
+    console.error("Error reinitializing scheduler:", err);
+    res.status(500).json({
+      message: "Failed to reinitialize scheduler",
       error: err.message,
     });
   }
@@ -49,6 +101,44 @@ schedulerRoutes.post("/", async (req, res) => {
     console.error("Error creating scheduled action:", err);
     res.status(500).json({
       message: "Failed to create scheduled action",
+      error: err.message,
+    });
+  }
+});
+
+// Pause a scheduled action
+schedulerRoutes.post("/:id/pause", async (req, res) => {
+  try {
+    const actionId = req.params.id;
+    await actionScheduler.pauseAction(actionId);
+    
+    res.status(200).json({
+      message: "Scheduled action paused successfully",
+      actionId: actionId,
+    });
+  } catch (err: any) {
+    console.error("Error pausing scheduled action:", err);
+    res.status(500).json({
+      message: "Failed to pause scheduled action",
+      error: err.message,
+    });
+  }
+});
+
+// Resume a scheduled action
+schedulerRoutes.post("/:id/resume", async (req, res) => {
+  try {
+    const actionId = req.params.id;
+    await actionScheduler.resumeAction(actionId);
+    
+    res.status(200).json({
+      message: "Scheduled action resumed successfully",
+      actionId: actionId,
+    });
+  } catch (err: any) {
+    console.error("Error resuming scheduled action:", err);
+    res.status(500).json({
+      message: "Failed to resume scheduled action",
       error: err.message,
     });
   }
