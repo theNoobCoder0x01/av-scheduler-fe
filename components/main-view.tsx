@@ -7,18 +7,44 @@ import ScheduleCreator from "@/components/schedule-creator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppSelector } from "@/lib/store/hooks";
 import { Calendar, Clock, FileMusic } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+// Custom hook to handle localStorage for active tab
+function useActiveTab({
+  isScheduleTabDisabled,
+}: {
+  isScheduleTabDisabled: boolean;
+}) {
+  const [activeTab, setActiveTab] = useState("events");
+
+  useEffect(() => {
+    // Load the active tab from localStorage on component mount
+    const savedTab = localStorage.getItem("activeTab");
+    if (savedTab && (!isScheduleTabDisabled || savedTab !== "schedule")) {
+      setActiveTab(savedTab);
+    }
+  }, [isScheduleTabDisabled]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    localStorage.setItem("activeTab", value);
+  };
+
+  return { activeTab, handleTabChange };
+}
 
 export default function MainView() {
-  const [activeTab, setActiveTab] = useState("events");
   const events = useAppSelector((state) => state.events.events);
+  const { activeTab, handleTabChange } = useActiveTab({
+    isScheduleTabDisabled: events.length === 0,
+  });
 
   return (
     <div className="w-full">
       <Tabs
         defaultValue="events"
         value={activeTab}
-        onValueChange={setActiveTab}
+        onValueChange={handleTabChange}
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { PlaylistService } from "@/services/playlist.service";
 import { WebSocketService } from "@/services/web-socket.service";
@@ -46,13 +46,14 @@ export default function MediaPlayerContainer({
   // Load playlist from M3U file
   const loadPlaylistFromFile = async (
     filePath: string,
-    autoPlayFlag: boolean = false,
+    autoPlayFlag: boolean = false
   ) => {
     try {
       console.log("🎵 Loading playlist from file:", filePath);
 
-      const playlistContent =
-        await PlaylistService.loadPlaylistContent(filePath);
+      const playlistContent = await PlaylistService.loadPlaylistContent(
+        filePath
+      );
 
       if (playlistContent.tracks.length === 0) {
         toast({

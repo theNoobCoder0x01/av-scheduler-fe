@@ -1,7 +1,16 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -25,49 +34,40 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { useScheduler } from "@/hooks/use-scheduler";
 import { generatePlaylistFilenames } from "@/lib/playlist-utils";
+import { cn } from "@/lib/utils";
 import { ICalendarEvent } from "@/models/calendar-event.model";
 import { ActionType, ScheduledAction } from "@/models/scheduled-action.model";
 import {
   PlaylistCheckResult,
   PlaylistService,
 } from "@/services/playlist.service";
-import { useScheduler } from "@/hooks/use-scheduler";
 import { format } from "date-fns";
 import {
+  Activity,
+  AlertTriangle,
+  Ban,
   Calendar,
   CheckCircle,
-  Clock,
   ExternalLink,
   FileMusic,
+  Globe,
+  MoreHorizontal,
   Pause,
+  PauseCircle,
   Play,
+  PlayCircle,
   Plus,
   RefreshCw,
   Repeat,
+  Settings,
   Square,
   Trash2,
   XCircle,
-  AlertTriangle,
-  Settings,
-  MoreHorizontal,
-  Globe,
-  Activity,
   Zap,
-  Ban,
-  PlayCircle,
-  PauseCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 interface ScheduleCreatorProps {
   events: ICalendarEvent[];
@@ -75,21 +75,21 @@ interface ScheduleCreatorProps {
 
 // Timezone options with labels
 const TIMEZONE_OPTIONS = [
-  { value: 'America/New_York', label: 'Eastern Time (EST/EDT)' },
-  { value: 'America/Chicago', label: 'Central Time (CST/CDT)' },
-  { value: 'America/Denver', label: 'Mountain Time (MST/MDT)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (PST/PDT)' },
-  { value: 'Europe/London', label: 'British Time (GMT/BST)' },
-  { value: 'Europe/Paris', label: 'Central European Time' },
-  { value: 'Europe/Berlin', label: 'Central European Time' },
-  { value: 'Asia/Tokyo', label: 'Japan Standard Time' },
-  { value: 'Asia/Shanghai', label: 'China Standard Time' },
-  { value: 'Asia/Kolkata', label: 'India Standard Time' },
-  { value: 'Australia/Sydney', label: 'Australian Eastern Time' },
-  { value: 'UTC', label: 'Coordinated Universal Time' },
+  { value: "America/New_York", label: "Eastern Time (EST/EDT)" },
+  { value: "America/Chicago", label: "Central Time (CST/CDT)" },
+  { value: "America/Denver", label: "Mountain Time (MST/MDT)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (PST/PDT)" },
+  { value: "Europe/London", label: "British Time (GMT/BST)" },
+  { value: "Europe/Paris", label: "Central European Time" },
+  { value: "Europe/Berlin", label: "Central European Time" },
+  { value: "Asia/Tokyo", label: "Japan Standard Time" },
+  { value: "Asia/Shanghai", label: "China Standard Time" },
+  { value: "Asia/Kolkata", label: "India Standard Time" },
+  { value: "Australia/Sydney", label: "Australian Eastern Time" },
+  { value: "UTC", label: "Coordinated Universal Time" },
 ];
 
-const TIMEZONE_STORAGE_KEY = 'scheduler_timezone_preference';
+const TIMEZONE_STORAGE_KEY = "scheduler_timezone_preference";
 
 export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   // Enhanced hook integration
@@ -119,16 +119,21 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   const [actionTime, setActionTime] = useState<string>("");
   const [isDaily, setIsDaily] = useState(true);
   const [selectedTimezone, setSelectedTimezone] = useState<string>(
-    () => localStorage.getItem(TIMEZONE_STORAGE_KEY) || 
-    Intl.DateTimeFormat().resolvedOptions().timeZone
+    () =>
+      localStorage.getItem(TIMEZONE_STORAGE_KEY) ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone
   );
-  const [maxRetries, setMaxRetries] = useState<number>(3);
+  const [maxRetries, setMaxRetries] = useState<number>(2);
 
   // UI state
-  const [selectedActions, setSelectedActions] = useState<Set<string>>(new Set());
+  const [selectedActions, setSelectedActions] = useState<Set<string>>(
+    new Set()
+  );
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [actionsWithPlaylistStatus, setActionsWithPlaylistStatus] = useState<any[]>([]);
+  const [actionsWithPlaylistStatus, setActionsWithPlaylistStatus] = useState<
+    any[]
+  >([]);
 
   // Save timezone preference
   useEffect(() => {
@@ -136,50 +141,53 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   }, [selectedTimezone]);
 
   // Check playlist availability for scheduled actions
-  const checkPlaylistAvailability = useCallback(async (actionList: ScheduledAction[]) => {
-    setIsLoadingPlaylists(true);
-    try {
-      const actionsWithStatus = [];
+  const checkPlaylistAvailability = useCallback(
+    async (actionList: ScheduledAction[]) => {
+      setIsLoadingPlaylists(true);
+      try {
+        const actionsWithStatus = [];
 
-      for (const action of actionList) {
-        let playlistStatus = undefined;
+        for (const action of actionList) {
+          let playlistStatus = undefined;
 
-        // Only check for play actions that have an event name
-        if (action.actionType === "play" && action.eventName) {
-          try {
-            const result: PlaylistCheckResult =
-              await PlaylistService.checkPlaylistExists(action.eventName);
-            playlistStatus = {
-              found: result.found,
-              availableFiles: result.data.map((p) => p.name),
-              searchedFor: result.searchedFor,
-            };
-          } catch (error) {
-            console.error(
-              `Error checking playlist for ${action.eventName}:`,
-              error,
-            );
-            playlistStatus = {
-              found: false,
-              availableFiles: [],
-              searchedFor: action.eventName,
-            };
+          // Only check for play actions that have an event name
+          if (action.actionType === "play" && action.eventName) {
+            try {
+              const result: PlaylistCheckResult =
+                await PlaylistService.checkPlaylistExists(action.eventName);
+              playlistStatus = {
+                found: result.found,
+                availableFiles: result.data.map((p) => p.name),
+                searchedFor: result.searchedFor,
+              };
+            } catch (error) {
+              console.error(
+                `Error checking playlist for ${action.eventName}:`,
+                error
+              );
+              playlistStatus = {
+                found: false,
+                availableFiles: [],
+                searchedFor: action.eventName,
+              };
+            }
           }
+
+          actionsWithStatus.push({
+            ...action,
+            playlistStatus,
+          });
         }
 
-        actionsWithStatus.push({
-          ...action,
-          playlistStatus,
-        });
+        setActionsWithPlaylistStatus(actionsWithStatus);
+      } catch (error) {
+        console.error("Error checking playlist availability:", error);
+      } finally {
+        setIsLoadingPlaylists(false);
       }
-
-      setActionsWithPlaylistStatus(actionsWithStatus);
-    } catch (error) {
-      console.error("Error checking playlist availability:", error);
-    } finally {
-      setIsLoadingPlaylists(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   // Update playlist status when actions change
   useEffect(() => {
@@ -219,7 +227,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
         formattedTime += ":00";
       }
 
-      let newAction: Omit<ScheduledAction, 'id'> = {
+      let newAction: Omit<ScheduledAction, "id"> = {
         actionType,
         time: formattedTime,
         isDaily,
@@ -231,7 +239,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
       if (!isDaily && selectedEvent) {
         const event = events.find((e) => e.uid === selectedEvent);
         if (!event) throw new Error("Selected event not found");
-        
+
         if (typeof event.start === "number" && typeof event.end === "number") {
           // Create date object based on event date and action time
           const timeParts = formattedTime.split(":");
@@ -312,7 +320,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   };
 
   const handleSelectAction = (actionId: string, checked: boolean) => {
-    setSelectedActions(prev => {
+    setSelectedActions((prev) => {
       const newSet = new Set(prev);
       if (checked) {
         newSet.add(actionId);
@@ -325,7 +333,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedActions(new Set(actions.map(a => a.id!).filter(Boolean)));
+      setSelectedActions(new Set(actions.map((a) => a.id!).filter(Boolean)));
     } else {
       setSelectedActions(new Set());
     }
@@ -333,7 +341,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
 
   const handleBulkDelete = async () => {
     if (selectedActions.size === 0) return;
-    
+
     try {
       await deleteMultipleActions(Array.from(selectedActions));
       setSelectedActions(new Set());
@@ -344,7 +352,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
 
   const handleBulkPause = async () => {
     if (selectedActions.size === 0) return;
-    
+
     try {
       await pauseMultipleActions(Array.from(selectedActions));
       setSelectedActions(new Set());
@@ -355,7 +363,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
 
   const handleBulkResume = async () => {
     if (selectedActions.size === 0) return;
-    
+
     try {
       await resumeMultipleActions(Array.from(selectedActions));
       setSelectedActions(new Set());
@@ -458,7 +466,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
-    
+
     if (days > 0) return `${days}d ${hours % 24}h`;
     if (hours > 0) return `${hours}h ${minutes % 60}m`;
     if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
@@ -487,10 +495,10 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
               <span className="font-medium">Scheduler Error</span>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-            <Button 
-              onClick={clearError} 
-              variant="outline" 
-              size="sm" 
+            <Button
+              onClick={clearError}
+              variant="outline"
+              size="sm"
               className="mt-3"
             >
               Dismiss
@@ -511,27 +519,45 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center">
-                <div className={`text-2xl font-bold ${healthStatus.isInitialized ? 'text-green-600' : 'text-red-600'}`}>
-                  {healthStatus.isInitialized ? '✅' : '❌'}
+                <div
+                  className={`text-2xl font-bold ${
+                    healthStatus.isInitialized
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {healthStatus.isInitialized ? "✅" : "❌"}
                 </div>
                 <div className="text-sm text-muted-foreground">Initialized</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{healthStatus.activeSchedules}</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {healthStatus.activeSchedules}
+                </div>
                 <div className="text-sm text-muted-foreground">Active</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">{healthStatus.scheduledEntries}</div>
+                <div className="text-2xl font-bold text-purple-600">
+                  {healthStatus.scheduledEntries}
+                </div>
                 <div className="text-sm text-muted-foreground">Scheduled</div>
               </div>
               <div className="text-center">
-                <div className={`text-2xl font-bold ${healthStatus.failedActions > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                <div
+                  className={`text-2xl font-bold ${
+                    healthStatus.failedActions > 0
+                      ? "text-red-600"
+                      : "text-green-600"
+                  }`}
+                >
                   {healthStatus.failedActions}
                 </div>
                 <div className="text-sm text-muted-foreground">Failed</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-600">{formatUptime(healthStatus.uptime)}</div>
+                <div className="text-2xl font-bold text-gray-600">
+                  {formatUptime(healthStatus.uptime)}
+                </div>
                 <div className="text-sm text-muted-foreground">Uptime</div>
               </div>
             </div>
@@ -543,28 +569,26 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
       <Card>
         <CardHeader>
           <CardTitle>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col items-start">
               <div>Schedule Media Actions</div>
-              <div className="flex items-center space-x-2">
+              <div className="w-full flex items-center justify-end gap-2">
                 <Button
                   onClick={handleOpenMediaPlayer}
                   variant="outline"
-                  size="sm"
+                  size="md"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open Media Player
                 </Button>
-                <Button 
-                  onClick={refresh} 
-                  size="icon"
-                  disabled={refreshing}
-                >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <Button onClick={refresh} size="icon" disabled={refreshing}>
+                  <RefreshCw
+                    className={cn("h-4 w-4", refreshing ? "animate-spin" : "")}
+                  />
                 </Button>
-                <Button 
-                  onClick={forceRefresh} 
+                <Button
+                  onClick={forceRefresh}
                   variant="outline"
-                  size="sm"
+                  size="md"
                   disabled={refreshing}
                 >
                   <Zap className="h-4 w-4 mr-2" />
@@ -595,13 +619,18 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                 onClick={() => setShowAdvanced(!showAdvanced)}
               >
                 <Settings className="h-4 w-4 mr-2" />
-                {showAdvanced ? 'Hide' : 'Show'} Advanced
+                {showAdvanced ? "Hide" : "Show"} Advanced
               </Button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-6">
+            <div className="grid gap-2 grid-cols-12">
               {!isDaily && (
-                <div className="md:col-span-2">
+                <div
+                  className={cn(
+                    "col-span-12",
+                    showAdvanced ? "md:col-span-3" : "md:col-span-4"
+                  )}
+                >
                   <Select
                     value={selectedEvent}
                     onValueChange={setSelectedEvent}
@@ -620,8 +649,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                   </Select>
                 </div>
               )}
-              
-              <div className={isDaily ? "md:col-span-2" : ""}>
+
+              <div className="col-span-12 md:col-span-3">
                 <Select
                   value={actionType}
                   onValueChange={(value) => setActionType(value as ActionType)}
@@ -651,14 +680,12 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div className="flex items-center space-x-2">
+
+              <div className="col-span-12 md:col-span-3 flex items-center space-x-2">
                 <div className="relative w-full">
-                  <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     type="time"
                     step="1"
-                    className="pl-10"
                     value={actionTime}
                     onChange={(e) => setActionTime(e.target.value)}
                     placeholder="HH:MM:SS"
@@ -668,8 +695,11 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
 
               {showAdvanced && (
                 <>
-                  <div>
-                    <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
+                  <div className="hidden col-span-12 md:col-span-3">
+                    <Select
+                      value={selectedTimezone}
+                      onValueChange={setSelectedTimezone}
+                    >
                       <SelectTrigger>
                         <Globe className="mr-2 h-4 w-4" />
                         <SelectValue />
@@ -683,9 +713,12 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  <div>
-                    <Select value={maxRetries.toString()} onValueChange={(v) => setMaxRetries(parseInt(v))}>
+
+                  <div className="col-span-12 md:col-span-2">
+                    <Select
+                      value={maxRetries.toString()}
+                      onValueChange={(v: string) => setMaxRetries(parseInt(v))}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Max Retries" />
                       </SelectTrigger>
@@ -700,22 +733,25 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                   </div>
                 </>
               )}
-              
-              <div className="flex items-center">
-                <Button onClick={handleAddAction} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Action
+
+              <div className="col-span-12 md:col-span-1 flex items-center">
+                <Button
+                  onClick={handleAddAction}
+                  className="w-full p-0 flex items-center justify-center"
+                >
+                  <Plus className="h-6 w-6" />
                 </Button>
               </div>
             </div>
 
             {/* Time format help text */}
             <div className="text-xs text-muted-foreground">
-              💡 Time format: HH:MM:SS (e.g., 14:30:45) or HH:MM (seconds default to :00)
+              💡 Time format: HH:MM:SS (e.g., 14:30:45) or HH:MM (seconds
+              default to :00)
               {showAdvanced && (
                 <>
-                  <br />
-                  🌍 Timezone: Actions will execute in the selected timezone
+                  {/* <br />
+                  🌍 Timezone: Actions will execute in the selected timezone */}
                   <br />
                   🔄 Max Retries: Number of retry attempts if action fails
                 </>
@@ -732,9 +768,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
             <span>Scheduled Actions</span>
             {selectedActions.size > 0 && (
               <div className="flex items-center gap-2">
-                <Badge variant="outline">
-                  {selectedActions.size} selected
-                </Badge>
+                <Badge variant="outline">{selectedActions.size} selected</Badge>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -751,7 +785,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                       Resume Selected
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={handleBulkDelete}
                       className="text-destructive"
                     >
@@ -776,21 +810,21 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                   <TableHead className="w-12">
                     <Checkbox
                       checked={
-                        actions.length > 0 && 
+                        actions.length > 0 &&
                         selectedActions.size === actions.length
                       }
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Schedule Type</TableHead>
+                  <TableHead className="min-w-40">Schedule Type</TableHead>
                   <TableHead>Time</TableHead>
                   <TableHead>Action</TableHead>
-                  <TableHead>Event</TableHead>
+                  <TableHead className="min-w-40">Event</TableHead>
                   <TableHead>Timezone</TableHead>
-                  <TableHead>Playlist Status</TableHead>
-                  <TableHead>Last Run</TableHead>
-                  <TableHead>Next Run</TableHead>
+                  <TableHead className="min-w-40">Playlist Status</TableHead>
+                  <TableHead className="min-w-40">Last Run</TableHead>
+                  <TableHead className="min-w-40">Next Run</TableHead>
                   <TableHead>Retries</TableHead>
                   <TableHead className="text-right">Options</TableHead>
                 </TableRow>
@@ -800,15 +834,22 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                   <TableRow key={action.id || index}>
                     <TableCell>
                       <Checkbox
-                        checked={selectedActions.has(action.id || '')}
-                        onCheckedChange={(checked) => 
-                          handleSelectAction(action.id || '', checked as boolean)
+                        checked={selectedActions.has(action.id || "")}
+                        onCheckedChange={(checked) =>
+                          handleSelectAction(
+                            action.id || "",
+                            checked as boolean
+                          )
                         }
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge variant={action.isActive !== false ? 'default' : 'secondary'}>
-                        {action.isActive !== false ? 'Active' : 'Paused'}
+                      <Badge
+                        variant={
+                          action.isActive !== false ? "default" : "secondary"
+                        }
+                      >
+                        {action.isActive !== false ? "Active" : "Paused"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -854,7 +895,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">
-                        {action.timezone || 'Local'}
+                        {action.timezone || "Local"}
                       </span>
                     </TableCell>
                     <TableCell>{renderPlaylistStatus(action)}</TableCell>
