@@ -310,11 +310,55 @@ async function playPlaylistBuiltIn(
 
     console.log("🎵 Found playlist file:", filePath);
 
+    // Use the global electron window manager if available
     let globalObject = global as any;
+    let windowManagerResult = null;
 
-    // Signal Electron to open media player window with auto-play
+    // First check if we have the enhanced window manager available
+    if (globalObject.electronWindowManager) {
+      console.log("🎵 Using enhanced window manager");
+      try {
+        windowManagerResult = await globalObject.electronWindowManager.openMediaPlayerWindow(filePath, true);
+        
+        if (windowManagerResult.success) {
+          return {
+            success: true,
+            message: windowManagerResult.message,
+          };
+        } else if (windowManagerResult.action === 'skipped') {
+          // Action was skipped due to user settings
+          return {
+            success: false,
+            message: windowManagerResult.message,
+          };
+        }
+      } catch (error) {
+        console.error("❌ Error with enhanced window manager:", error);
+        // Fall back to legacy method
+      }
+    }
+
+    // Fallback to legacy Electron API if window manager is not available
     if (globalObject.electronAPI) {
-      console.log("🎵 Opening media player via Electron API");
+      console.log("🎵 Using legacy Electron API");
+      
+      // Check if we should skip based on settings and existing windows
+      if (settings.mediaPlayerWindowBehavior === 'skip-if-open') {
+        // Try to check if a window is already open
+        try {
+          const hasWindow = await globalObject.electronAPI.checkMediaPlayerExists?.();
+          if (hasWindow) {
+            console.log("🚫 Skipping - media player window already open (legacy check)");
+            return {
+              success: false,
+              message: "Media player window already open, action skipped",
+            };
+          }
+        } catch (error) {
+          console.log("⚠️ Could not check for existing windows, proceeding...");
+        }
+      }
+
       globalObject.electronAPI.openMediaPlayer(filePath, true); // true for auto-play
     }
 
@@ -327,6 +371,15 @@ async function playPlaylistBuiltIn(
         playlistPath: filePath,
         autoPlay: true,
       },
+    });
+
+    // Broadcast notification about the action
+    broadcast({
+      type: "scheduledAction",
+      action: "play",
+      playlistName,
+      timestamp: Date.now(),
+      result: windowManagerResult || { success: true, action: 'opened' },
     });
 
     return {
@@ -351,6 +404,14 @@ async function pauseBuiltIn(): Promise<{ success: boolean; message: string }> {
       type: "mediaPlayerCommand",
       command: "pause",
       data: {},
+    });
+
+    // Also broadcast action notification
+    broadcast({
+      type: "scheduledAction",
+      action: "pause",
+      timestamp: Date.now(),
+      result: { success: true },
     });
 
     return {
@@ -393,6 +454,25 @@ async function stopBuiltIn(): Promise<{ success: boolean; message: string }> {
   try {
     console.log("⏹️ Sending stop command to built-in player");
 
+    let globalObject = global as any;
+    let windowManagerResult = null;
+
+    // Use enhanced window manager if available
+    if (globalObject.electronWindowManager) {
+      console.log("🔒 Closing media player windows via enhanced window manager");
+      try {
+        windowManagerResult = await globalObject.electronWindowManager.closeAllMediaPlayerWindows();
+      } catch (error) {
+        console.error("❌ Error with enhanced window manager during stop:", error);
+      }
+    }
+
+    // Fallback to legacy method
+    if (globalObject.electronAPI) {
+      console.log("🔒 Closing media player windows via legacy Electron API");
+      globalObject.electronAPI.closeMediaPlayer();
+    }
+
     // Broadcast stop command to all media player windows
     broadcast({
       type: "mediaPlayerCommand",
@@ -400,12 +480,13 @@ async function stopBuiltIn(): Promise<{ success: boolean; message: string }> {
       data: {},
     });
 
-    // Also signal Electron to close media player windows
-    let globalObject = global as any;
-    if (globalObject.electronAPI) {
-      console.log("🔒 Closing media player windows via Electron API");
-      globalObject.electronAPI.closeMediaPlayer();
-    }
+    // Broadcast action notification
+    broadcast({
+      type: "scheduledAction",
+      action: "stop",
+      timestamp: Date.now(),
+      result: windowManagerResult || { success: true },
+    });
 
     return {
       success: true,
@@ -497,39 +578,68 @@ export async function controlVlc(
     const playerMode = settings.playerMode || "vlc";
 
     console.log("🎮 Using player mode:", playerMode);
+    console.log("🎮 Window behavior:", settings.mediaPlayerWindowBehavior);
+
+    let result: { success: boolean; message: string };
 
     switch (action) {
       case "play":
         if (playerMode === "built-in") {
-          return await playPlaylistBuiltIn(playlistName || "");
+          result = await playPlaylistBuiltIn(playlistName || "");
         } else {
-          return await playPlaylistVLC(playlistName || "");
+          result = await playPlaylistVLC(playlistName || "");
         }
+        break;
       case "pause":
         if (playerMode === "built-in") {
-          return await pauseBuiltIn();
+          result = await pauseBuiltIn();
         } else {
-          return await pauseVlc();
+          result = await pauseVlc();
         }
+        break;
       case "stop":
         if (playerMode === "built-in") {
-          return await stopBuiltIn();
+          result = await stopBuiltIn();
         } else {
-          return await stopVlc({ killProcess: true });
+          result = await stopVlc({ killProcess: true });
         }
+        break;
       default:
-        return {
+        result = {
           success: false,
           message: `Unknown action: ${action}`,
         };
     }
+
+    // Broadcast the result for monitoring
+    broadcast({
+      type: "actionExecuted",
+      action,
+      playlistName,
+      playerMode,
+      result,
+      timestamp: Date.now(),
+    });
+
+    return result;
   } catch (error: Error | any) {
     console.error("❌ Error controlling media:", error);
 
-    return {
+    const errorResult = {
       success: false,
       message: error.message,
     };
+
+    // Broadcast error for monitoring
+    broadcast({
+      type: "actionError",
+      action,
+      playlistName,
+      error: error.message,
+      timestamp: Date.now(),
+    });
+
+    return errorResult;
   }
 }
 

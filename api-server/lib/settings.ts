@@ -13,6 +13,10 @@ const SETTINGS_FILE = path.join(APP_CONFIG_DIR, "settings.json");
 const defaultSettings: AppSettings = {
   playlistFolderPath: path.join(APP_CONFIG_DIR, "playlists"),
   playerMode: "vlc", // Default to VLC player
+  mediaPlayerWindowBehavior: "close-existing", // Default: close existing window when new action triggers
+  allowMultipleMediaWindows: false, // Default: only one media player window at a time
+  mediaPlayerWindowTimeout: 5, // Default: 5 seconds timeout for window operations
+  mediaPlayerAutoFocus: true, // Default: auto-focus media player window when opened
 };
 
 /**
