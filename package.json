@@ -46,7 +46,7 @@
     "dev:web-only": "npm run dev",
     "electron:dev": "cross-env NODE_ENV=development electron .",
     "electron:build": "npm run build:clean && npm run build:static && npm run api:build && npm run build:package",
-    "electron:build-win": "npm run build:clean && npm run build:static && npm run api:build && electron-builder --win",
+    "electron:build-win": "npm run build:static && npm run api:build && electron-builder --win",
     "electron:build-linux": "npm run build:clean && npm run build:static && npm run api:build && electron-builder --linux",
     "build:clean": "rm -rf dist out .next",
     "build:static": "next build",
