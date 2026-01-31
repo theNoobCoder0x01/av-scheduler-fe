@@ -53,6 +53,7 @@ import {
   ExternalLink,
   FileMusic,
   Globe,
+  Moon,
   MoreHorizontal,
   Pause,
   PauseCircle,
@@ -677,6 +678,12 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                         <span>Close</span>
                       </div>
                     </SelectItem>
+                    <SelectItem value="sleep">
+                      <div className="flex items-center">
+                        <Moon className="mr-2 h-4 w-4" />
+                        <span>Sleep (Windows)</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -881,9 +888,13 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                         {action.actionType === "stop" && (
                           <Square className="mr-2 h-4 w-4 text-red-500" />
                         )}
+                        {action.actionType === "sleep" && (
+                          <Moon className="mr-2 h-4 w-4 text-blue-500" />
+                        )}
                         {action.actionType === "play" && "Start"}
                         {action.actionType === "pause" && "Play/Pause"}
                         {action.actionType === "stop" && "Close"}
+                        {action.actionType === "sleep" && "Sleep (Windows)"}
                       </span>
                     </TableCell>
                     <TableCell>

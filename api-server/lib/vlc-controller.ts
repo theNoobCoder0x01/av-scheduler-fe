@@ -545,6 +545,38 @@ async function stopVlc(
   }
 }
 
+async function sleepWindows(): Promise<{ success: boolean; message: string }> {
+  try {
+    console.log("[HELP] Initiating Windows sleep mode");
+
+    // Check if running on Windows
+    if (process.platform !== "win32") {
+      return {
+        success: false,
+        message: "Sleep mode is only supported on Windows operating systems",
+      };
+    }
+
+    // Use rundll32 to call the Windows sleep function
+    // SetSuspendState parameters: 0 (sleep, not hibernate), 1 (force), 0 (disable wake events)
+    exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,0", (error) => {
+      if (error) {
+        console.error("[ERROR] Failed to initiate sleep mode:", error);
+      }
+    });
+
+    return {
+      success: true,
+      message: "Computer entering sleep mode",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to initiate sleep mode: ${(error as Error).message}`,
+    };
+  }
+}
+
 export async function controlVlc(
   action: ActionType,
   playlistName?: string,
@@ -603,6 +635,9 @@ export async function controlVlc(
         } else {
           result = await stopVlc({ killProcess: true });
         }
+        break;
+      case "sleep":
+        result = await sleepWindows();
         break;
       default:
         result = {
