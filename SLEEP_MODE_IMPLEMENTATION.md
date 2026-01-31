@@ -9,9 +9,16 @@ This document describes the comprehensive sleep mode implementation with automat
 ### 1. **Sleep Mode Detection**
 - **File**: `api-server/lib/sleep-mode-detector.ts`
 - Detects available sleep modes:
-  - S0 Modern Standby (Low Power Idle)
+  - S0 Modern Standby (Low Power Idle) with variant detection (e.g., "Network Connected")
+  - S1 Sleep (if supported)
+  - S2 Sleep (if supported)
   - S3 Traditional Sleep
+  - S4 Hibernate
+- Parses full `powercfg /a` output for comprehensive state information
+- Tracks unavailable states with reasons (e.g., "disabled when S0 is supported")
 - Checks RTC (Real-Time Clock) wake timer support
+- Detects wake-armed devices
+- Identifies if wake timer commands require admin privileges
 - Determines if automatic wake is possible
 - Implements caching (5-minute TTL) for performance
 
@@ -72,23 +79,43 @@ This document describes the comprehensive sleep mode implementation with automat
   - ⚠️ Yellow: Auto-wake not supported
   - ❌ Red: Detection failed
 - Displays:
-  - Sleep mode type (S0/S3)
+  - Sleep mode type (S0/S1/S2/S3/S4) with variant information
   - RTC wake support status
-  - Admin privilege status
+  - Wake-armed devices count
+  - Admin privilege status (only shown when wake timers require admin)
   - Clear warnings about manual wake requirements
 
 ## Technical Details
 
 ### Sleep Mode Detection Logic
 
-```typescript
-// S0 Modern Standby Detection
-if (powercfgOutput.includes("Standby (S0 Low Power Idle)")
-    && !powercfgOutput.match(/Standby \(S0 Low Power Idle\).*not supported/i))
+The implementation now parses the complete `powercfg /a` output to extract:
 
-// S3 Traditional Sleep Detection
-if (powercfgOutput.includes("Standby (S3)")
-    && !powercfgOutput.match(/Standby \(S3\).*not supported/i))
+1. **Available sleep states** - All states listed under "following sleep states are available"
+2. **Unavailable states with reasons** - States listed under "not available" with their reasons
+3. **Sleep mode variants** - Additional details like "Network Connected" for Modern Standby
+4. **Priority selection** - Primary mode selected in order: S0 > S3 > S1 > S2 > S4
+
+```typescript
+// Parse full output into sections
+const { availableStates, unavailableStates } = parsePowercfgOutput(output);
+
+// Extract detailed information for each state
+const states = extractSleepStateDetails(availableStates, unavailableStates);
+
+// S0 Modern Standby with variant extraction
+if (stateLower.includes("standby (s0")) {
+  states.s0.available = true;
+  // Extract variant (e.g., "Network Connected")
+  const variantMatch = state.match(/Standby \(S0[^)]*\)\s+(.+)/i);
+  if (variantMatch) states.s0.variant = variantMatch[1].trim();
+}
+
+// Unavailable state with reason extraction
+unavailableStates.forEach((reasons, state) => {
+  const reasonText = reasons.join(" ").trim();
+  // Store both availability (false) and reason
+});
 ```
 
 ### Wake Timer Implementation
@@ -114,6 +141,46 @@ rundll32.exe powrprof.dll,SetSuspendState 0,1,1
 # Parameters: sleep, force, ENABLE wake events
 ```
 
+### Real-World Example: Modern Standby System
+
+Example output from a system with S0 Modern Standby:
+
+```
+powercfg /a
+The following sleep states are available on this system:
+    Standby (S0 Low Power Idle) Network Connected
+    Hibernate
+    Fast Startup
+
+The following sleep states are not available on this system:
+    Standby (S1)
+        The system firmware does not support this standby state.
+        This standby state is disabled when S0 low power idle is supported.
+    Standby (S2)
+        The system firmware does not support this standby state.
+        This standby state is disabled when S0 low power idle is supported.
+    Standby (S3)
+        This standby state is disabled when S0 low power idle is supported.
+    Hybrid Sleep
+        Standby (S3) is not available.
+
+powercfg /devicequery wake_armed
+NONE
+
+powercfg /waketimers (requires admin)
+There are no active wake timers in the system.
+```
+
+**Detection Result:**
+- **Primary Mode**: S0 Modern Standby (Network Connected)
+- **Alternative Modes**: S4 Hibernate available
+- **RTC Wake**: Supported
+- **Auto-Wake**: Enabled ✓
+- **Wake Devices**: 0 configured
+- **Admin Required**: Yes (for wake timer verification)
+
+This system will successfully use S0 Modern Standby with automatic wake capability.
+
 ## User Experience Flow
 
 ### Creating a Sleep Schedule
@@ -121,9 +188,11 @@ rundll32.exe powrprof.dll,SetSuspendState 0,1,1
 1. User selects "Sleep (Windows)" action in scheduler
 2. System automatically detects sleep capabilities
 3. UI displays:
-   - Detected sleep mode (S0/S3)
+   - Detected sleep mode (S0/S1/S2/S3/S4) with variant information
    - Auto-wake capability status
-   - Admin privilege requirement
+   - RTC wake support
+   - Wake-armed devices count (if any)
+   - Admin privilege requirement (if applicable)
    - Buffer time setting location
 4. User sets time and creates schedule
 

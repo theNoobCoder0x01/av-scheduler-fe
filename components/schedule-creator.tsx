@@ -779,22 +779,40 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                             <p>
                               <strong>Sleep Mode:</strong>{" "}
                               {sleepCapabilities.supportedMode === "S0"
-                                ? "S0 Modern Standby"
+                                ? `S0 Modern Standby${
+                                    sleepCapabilities.states?.s0?.variant
+                                      ? ` (${sleepCapabilities.states.s0.variant})`
+                                      : ""
+                                  }`
                                 : sleepCapabilities.supportedMode === "S3"
                                   ? "S3 Traditional Sleep"
-                                  : "Unknown"}
+                                  : sleepCapabilities.supportedMode === "S1"
+                                    ? "S1 Sleep"
+                                    : sleepCapabilities.supportedMode === "S2"
+                                      ? "S2 Sleep"
+                                      : sleepCapabilities.supportedMode === "S4"
+                                        ? "S4 Hibernate"
+                                        : "Unknown"}
                             </p>
                             <p>
                               <strong>RTC Wake:</strong>{" "}
                               {sleepCapabilities.supportsRTCWake ? "Yes" : "No"}
                             </p>
-                            {!sleepCapabilities.isRunningAsAdmin && (
-                              <p className="flex items-center gap-1 text-orange-700 dark:text-orange-300">
-                                <AlertTriangle className="h-3 w-3" />
-                                <strong>Admin Required:</strong> Run as Administrator
-                                to enable wake timers
-                              </p>
-                            )}
+                            {sleepCapabilities.wakeArmedDevices &&
+                              sleepCapabilities.wakeArmedDevices.length > 0 && (
+                                <p className="text-xs">
+                                  <strong>Wake Devices:</strong>{" "}
+                                  {sleepCapabilities.wakeArmedDevices.length} configured
+                                </p>
+                              )}
+                            {!sleepCapabilities.isRunningAsAdmin &&
+                              sleepCapabilities.requiresAdminForWakeTimers && (
+                                <p className="flex items-center gap-1 text-orange-700 dark:text-orange-300">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  <strong>Admin Required:</strong> Run as Administrator
+                                  to enable wake timers
+                                </p>
+                              )}
                             {sleepCapabilities.canAutoWakeup ? (
                               <p className="mt-2 text-xs">
                                 The computer will automatically wake before the next

@@ -574,23 +574,55 @@ async function sleepWindows(): Promise<{
     console.log("[Sleep] Detecting sleep mode capabilities...");
     const capabilities = await getSleepCapabilities();
 
+    // Format sleep mode name with variant
+    const getSleepModeName = () => {
+      const mode = capabilities.supportedMode;
+      if (mode === "S0" && capabilities.states?.s0?.variant) {
+        return `S0 Modern Standby (${capabilities.states.s0.variant})`;
+      } else if (mode === "S0") {
+        return "S0 Modern Standby";
+      } else if (mode === "S3") {
+        return "S3 Traditional Sleep";
+      } else if (mode === "S1") {
+        return "S1 Sleep";
+      } else if (mode === "S2") {
+        return "S2 Sleep";
+      } else if (mode === "S4") {
+        return "S4 Hibernate";
+      }
+      return mode;
+    };
+
     console.log("[Sleep] Detected capabilities:", {
-      mode: capabilities.supportedMode,
+      mode: getSleepModeName(),
       rtcWake: capabilities.supportsRTCWake,
       canAutoWake: capabilities.canAutoWakeup,
+      wakeDevices: capabilities.wakeArmedDevices?.length || 0,
+      requiresAdmin: capabilities.requiresAdminForWakeTimers,
     });
 
     // Step 2: Check if auto-wakeup is supported
     if (!capabilities.canAutoWakeup) {
+      const sleepModeName = getSleepModeName();
+      let reason = "";
+
+      if (!capabilities.supportsRTCWake) {
+        reason = "RTC wake timers are not supported on this system.";
+      } else if (capabilities.requiresAdminForWakeTimers) {
+        reason = "Administrator privileges are required to configure wake timers.";
+      } else {
+        reason = "Auto-wake capability could not be verified.";
+      }
+
       console.warn(
         "[Sleep] Auto-wakeup is not supported on this system",
-        `(Mode: ${capabilities.supportedMode}, RTC Wake: ${capabilities.supportsRTCWake})`,
+        `(Mode: ${sleepModeName}, RTC Wake: ${capabilities.supportsRTCWake}, Reason: ${reason})`,
       );
 
       // Return a warning that requires user confirmation
       return {
         success: false,
-        message: `Sleep mode detected: ${capabilities.supportedMode}. Auto-wake is not supported on this system.`,
+        message: `Sleep mode detected: ${sleepModeName}. Auto-wake is not supported. ${reason}`,
         requiresConfirmation: true,
         warningMessage:
           "If you proceed with sleep, the computer will NOT wake up automatically before the next scheduled action. You will need to manually wake it up for scheduled tasks to execute.",
