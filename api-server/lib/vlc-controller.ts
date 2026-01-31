@@ -1,6 +1,9 @@
 import axios from "axios";
 import { ChildProcess, exec, spawn } from "child_process";
+import { promisify } from "util";
 import path from "path";
+
+const execAsync = promisify(exec);
 import { ICalendarEvent } from "../../models/calendar-event.model";
 import { ActionType } from "../../models/scheduled-action.model";
 import { CalendarEventsService } from "../services/calendar-events.service";
@@ -552,6 +555,28 @@ async function stopVlc(
   }
 }
 
+/**
+ * Executes the Windows sleep command with proper error handling
+ * @returns Promise that resolves when sleep command is executed
+ * @throws Error if sleep command fails
+ */
+async function executeSleepCommand(): Promise<void> {
+  console.log("[Sleep] Executing sleep command...");
+  try {
+    // SetSuspendState parameters:
+    // 0 = Sleep mode (not hibernate)
+    // 1 = Force sleep (override wake locks)
+    // 1 = Enable wake events (allows wake timers to work)
+    await execAsync("rundll32.exe powrprof.dll,SetSuspendState 0,1,1");
+    console.log("[Sleep] Sleep command executed successfully");
+  } catch (error) {
+    console.error("[Sleep] Failed to execute sleep command:", error);
+    throw new Error(
+      `Sleep command execution failed: ${(error as Error).message}`,
+    );
+  }
+}
+
 async function sleepWindows(): Promise<{
   success: boolean;
   message: string;
@@ -642,17 +667,19 @@ async function sleepWindows(): Promise<{
       );
 
       // No wake timer needed, just sleep
-      exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,1", (error) => {
-        if (error) {
-          console.error("[Sleep] Failed to initiate sleep mode:", error);
-        }
-      });
-
-      return {
-        success: true,
-        message:
-          "Computer entering sleep mode (no wake timer needed - no upcoming actions)",
-      };
+      try {
+        await executeSleepCommand();
+        return {
+          success: true,
+          message:
+            "Computer entering sleep mode (no wake timer needed - no upcoming actions)",
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `Failed to initiate sleep mode: ${(error as Error).message}`,
+        };
+      }
     }
 
     // Get the next action by next_run time
@@ -679,16 +706,18 @@ async function sleepWindows(): Promise<{
     if (!nextAction.nextRun) {
       console.warn("[Sleep] Next action has no nextRun time, cannot schedule wake timer");
 
-      exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,1", (error) => {
-        if (error) {
-          console.error("[Sleep] Failed to initiate sleep mode:", error);
-        }
-      });
-
-      return {
-        success: true,
-        message: "Computer entering sleep mode (no valid wake time available)",
-      };
+      try {
+        await executeSleepCommand();
+        return {
+          success: true,
+          message: "Computer entering sleep mode (no valid wake time available)",
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `Failed to initiate sleep mode: ${(error as Error).message}`,
+        };
+      }
     }
 
     // Calculate wake time (nextRun is in seconds since epoch)
@@ -749,22 +778,27 @@ async function sleepWindows(): Promise<{
     console.log("[Sleep] Wake timer scheduled successfully");
 
     // Step 7: Initiate sleep with wake events enabled
-    // SetSuspendState parameters: 0 (sleep, not hibernate), 1 (force), 1 (ENABLE wake events)
     console.log("[Sleep] Putting computer to sleep with wake events enabled...");
-    exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,1", (error) => {
-      if (error) {
-        console.error("[Sleep] Failed to initiate sleep mode:", error);
-        // Try to clean up the wake timer if sleep failed
-        deleteWakeTimer().catch((e) =>
-          console.error("[Sleep] Failed to clean up wake timer:", e),
-        );
+    try {
+      await executeSleepCommand();
+      return {
+        success: true,
+        message: `Computer entering sleep mode. Will wake at ${wakeTime.toLocaleTimeString()} (${wakeBufferMinutes} min before next action)`,
+      };
+    } catch (error) {
+      // Try to clean up the wake timer if sleep failed
+      try {
+        await deleteWakeTimer();
+        console.log("[Sleep] Wake timer cleaned up after sleep failure");
+      } catch (cleanupError) {
+        console.error("[Sleep] Failed to clean up wake timer:", cleanupError);
       }
-    });
 
-    return {
-      success: true,
-      message: `Computer entering sleep mode. Will wake at ${wakeTime.toLocaleTimeString()} (${wakeBufferMinutes} min before next action)`,
-    };
+      return {
+        success: false,
+        message: `Failed to initiate sleep mode: ${(error as Error).message}. Wake timer has been removed.`,
+      };
+    }
   } catch (error) {
     console.error("[Sleep] Error in sleep mode execution:", error);
     return {
