@@ -43,6 +43,10 @@ import {
   PlaylistCheckResult,
   PlaylistService,
 } from "@/services/playlist.service";
+import {
+  SleepCapabilities,
+  SystemService,
+} from "@/services/system.service";
 import { format } from "date-fns";
 import {
   Activity,
@@ -136,10 +140,36 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     any[]
   >([]);
 
+  // Sleep capabilities state
+  const [sleepCapabilities, setSleepCapabilities] =
+    useState<SleepCapabilities | null>(null);
+  const [loadingSleepCapabilities, setLoadingSleepCapabilities] =
+    useState(false);
+
   // Save timezone preference
   useEffect(() => {
     localStorage.setItem(TIMEZONE_STORAGE_KEY, selectedTimezone);
   }, [selectedTimezone]);
+
+  // Fetch sleep capabilities when sleep action is selected
+  useEffect(() => {
+    if (actionType === "sleep") {
+      const fetchSleepCapabilities = async () => {
+        setLoadingSleepCapabilities(true);
+        try {
+          const capabilities = await SystemService.getSleepCapabilities();
+          setSleepCapabilities(capabilities);
+        } catch (error) {
+          console.error("Error fetching sleep capabilities:", error);
+          setSleepCapabilities(null);
+        } finally {
+          setLoadingSleepCapabilities(false);
+        }
+      };
+
+      fetchSleepCapabilities();
+    }
+  }, [actionType]);
 
   // Check playlist availability for scheduled actions
   const checkPlaylistAvailability = useCallback(
@@ -699,6 +729,104 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                   />
                 </div>
               </div>
+
+              {/* Sleep Mode Capabilities Info */}
+              {actionType === "sleep" && (
+                <div className="col-span-12">
+                  {loadingSleepCapabilities ? (
+                    <div className="rounded-lg bg-muted/50 p-3 flex items-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      <span className="text-sm text-muted-foreground">
+                        Detecting sleep mode capabilities...
+                      </span>
+                    </div>
+                  ) : sleepCapabilities ? (
+                    <div
+                      className={cn(
+                        "rounded-lg p-3 border",
+                        sleepCapabilities.canAutoWakeup
+                          ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                          : "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+                      )}
+                    >
+                      <div className="flex items-start gap-2">
+                        {sleepCapabilities.canAutoWakeup ? (
+                          <CheckCircle className="h-4 w-4 mt-0.5 text-green-600 dark:text-green-400" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 mt-0.5 text-yellow-600 dark:text-yellow-400" />
+                        )}
+                        <div className="flex-1 text-sm">
+                          <p
+                            className={cn(
+                              "font-medium mb-1",
+                              sleepCapabilities.canAutoWakeup
+                                ? "text-green-800 dark:text-green-200"
+                                : "text-yellow-800 dark:text-yellow-200"
+                            )}
+                          >
+                            {sleepCapabilities.canAutoWakeup
+                              ? "Auto-Wake Supported"
+                              : "Auto-Wake Not Supported"}
+                          </p>
+                          <div
+                            className={cn(
+                              "space-y-1",
+                              sleepCapabilities.canAutoWakeup
+                                ? "text-green-700 dark:text-green-300"
+                                : "text-yellow-700 dark:text-yellow-300"
+                            )}
+                          >
+                            <p>
+                              <strong>Sleep Mode:</strong>{" "}
+                              {sleepCapabilities.supportedMode === "S0"
+                                ? "S0 Modern Standby"
+                                : sleepCapabilities.supportedMode === "S3"
+                                  ? "S3 Traditional Sleep"
+                                  : "Unknown"}
+                            </p>
+                            <p>
+                              <strong>RTC Wake:</strong>{" "}
+                              {sleepCapabilities.supportsRTCWake ? "Yes" : "No"}
+                            </p>
+                            {!sleepCapabilities.isRunningAsAdmin && (
+                              <p className="flex items-center gap-1 text-orange-700 dark:text-orange-300">
+                                <AlertTriangle className="h-3 w-3" />
+                                <strong>Admin Required:</strong> Run as Administrator
+                                to enable wake timers
+                              </p>
+                            )}
+                            {sleepCapabilities.canAutoWakeup ? (
+                              <p className="mt-2 text-xs">
+                                The computer will automatically wake before the next
+                                scheduled action.
+                              </p>
+                            ) : (
+                              <p className="mt-2 text-xs">
+                                ⚠️ You will need to manually wake the computer for
+                                scheduled actions to execute.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3 border border-red-200 dark:border-red-800">
+                      <div className="flex items-start gap-2">
+                        <XCircle className="h-4 w-4 mt-0.5 text-red-600" />
+                        <div className="text-sm text-red-700 dark:text-red-300">
+                          <p className="font-medium mb-1">
+                            Unable to detect sleep capabilities
+                          </p>
+                          <p>
+                            Please ensure you are running on Windows and try again.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {showAdvanced && (
                 <>

@@ -6,6 +6,13 @@ import { ActionType } from "../../models/scheduled-action.model";
 import { CalendarEventsService } from "../services/calendar-events.service";
 import { getSettings } from "./settings";
 import { broadcast } from "./web-socket";
+import { getSleepCapabilities } from "./sleep-mode-detector";
+import {
+  scheduleWakeTimer,
+  isRunningAsAdmin,
+  deleteWakeTimer,
+} from "./wake-timer-scheduler";
+import { SchedulerService } from "../services/scheduler.service";
 
 let vlcProcess: ChildProcess | null = null;
 let currentPlaylist: string | null = null;
@@ -545,9 +552,15 @@ async function stopVlc(
   }
 }
 
-async function sleepWindows(): Promise<{ success: boolean; message: string }> {
+async function sleepWindows(): Promise<{
+  success: boolean;
+  message: string;
+  requiresElevation?: boolean;
+  requiresConfirmation?: boolean;
+  warningMessage?: string;
+}> {
   try {
-    console.log("[HELP] Initiating Windows sleep mode");
+    console.log("[Sleep] Initiating Windows sleep mode with auto-wake capability");
 
     // Check if running on Windows
     if (process.platform !== "win32") {
@@ -557,19 +570,171 @@ async function sleepWindows(): Promise<{ success: boolean; message: string }> {
       };
     }
 
-    // Use rundll32 to call the Windows sleep function
-    // SetSuspendState parameters: 0 (sleep, not hibernate), 1 (force), 0 (disable wake events)
-    exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,0", (error) => {
+    // Step 1: Detect sleep capabilities
+    console.log("[Sleep] Detecting sleep mode capabilities...");
+    const capabilities = await getSleepCapabilities();
+
+    console.log("[Sleep] Detected capabilities:", {
+      mode: capabilities.supportedMode,
+      rtcWake: capabilities.supportsRTCWake,
+      canAutoWake: capabilities.canAutoWakeup,
+    });
+
+    // Step 2: Check if auto-wakeup is supported
+    if (!capabilities.canAutoWakeup) {
+      console.warn(
+        "[Sleep] Auto-wakeup is not supported on this system",
+        `(Mode: ${capabilities.supportedMode}, RTC Wake: ${capabilities.supportsRTCWake})`,
+      );
+
+      // Return a warning that requires user confirmation
+      return {
+        success: false,
+        message: `Sleep mode detected: ${capabilities.supportedMode}. Auto-wake is not supported on this system.`,
+        requiresConfirmation: true,
+        warningMessage:
+          "If you proceed with sleep, the computer will NOT wake up automatically before the next scheduled action. You will need to manually wake it up for scheduled tasks to execute.",
+      };
+    }
+
+    // Step 3: Get next scheduled action (excluding sleep actions)
+    console.log("[Sleep] Finding next scheduled action...");
+    const allActions = await SchedulerService.getAllScheduledActions();
+    const activeNonSleepActions = allActions.filter(
+      (action) => action.isActive && action.actionType !== "sleep",
+    );
+
+    if (activeNonSleepActions.length === 0) {
+      console.log(
+        "[Sleep] No active non-sleep actions scheduled. Proceeding with sleep without wake timer.",
+      );
+
+      // No wake timer needed, just sleep
+      exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,1", (error) => {
+        if (error) {
+          console.error("[Sleep] Failed to initiate sleep mode:", error);
+        }
+      });
+
+      return {
+        success: true,
+        message:
+          "Computer entering sleep mode (no wake timer needed - no upcoming actions)",
+      };
+    }
+
+    // Get the next action by next_run time
+    const nextAction = activeNonSleepActions.reduce((earliest, current) => {
+      if (!earliest) return current;
+      return (current.nextRun || 0) < (earliest.nextRun || 0)
+        ? current
+        : earliest;
+    });
+
+    console.log("[Sleep] Next scheduled action:", {
+      id: nextAction.id,
+      type: nextAction.actionType,
+      nextRun: nextAction.nextRun,
+      nextRunDate: nextAction.nextRun
+        ? new Date(nextAction.nextRun * 1000).toISOString()
+        : "unknown",
+    });
+
+    // Step 4: Calculate wake time based on settings
+    const settings = getSettings();
+    const wakeBufferMinutes = settings.sleepWakeBufferMinutes || 3;
+
+    if (!nextAction.nextRun) {
+      console.warn("[Sleep] Next action has no nextRun time, cannot schedule wake timer");
+
+      exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,1", (error) => {
+        if (error) {
+          console.error("[Sleep] Failed to initiate sleep mode:", error);
+        }
+      });
+
+      return {
+        success: true,
+        message: "Computer entering sleep mode (no valid wake time available)",
+      };
+    }
+
+    // Calculate wake time (nextRun is in seconds since epoch)
+    const nextActionTime = new Date(nextAction.nextRun * 1000);
+    const wakeTime = new Date(
+      nextActionTime.getTime() - wakeBufferMinutes * 60 * 1000,
+    );
+
+    console.log("[Sleep] Calculated wake time:", {
+      nextActionTime: nextActionTime.toISOString(),
+      wakeBufferMinutes,
+      wakeTime: wakeTime.toISOString(),
+    });
+
+    // Step 5: Check admin privileges
+    const isAdmin = await isRunningAsAdmin();
+    console.log("[Sleep] Running as admin:", isAdmin);
+
+    if (!isAdmin) {
+      console.warn(
+        "[Sleep] Not running as administrator - wake timer may fail to schedule",
+      );
+      return {
+        success: false,
+        message:
+          "Administrator privileges required to schedule auto-wake timer. Please run the application as Administrator.",
+        requiresElevation: true,
+      };
+    }
+
+    // Step 6: Schedule wake timer
+    console.log(
+      `[Sleep] Scheduling wake timer for ${wakeTime.toLocaleString()}...`,
+    );
+    const wakeResult = await scheduleWakeTimer(wakeTime);
+
+    if (!wakeResult.success) {
+      console.error("[Sleep] Failed to schedule wake timer:", wakeResult.message);
+
+      if (wakeResult.requiresElevation) {
+        return {
+          success: false,
+          message: wakeResult.message,
+          requiresElevation: true,
+        };
+      }
+
+      // Wake timer failed but we can still sleep without it
+      return {
+        success: false,
+        message: `Wake timer scheduling failed: ${wakeResult.message}. Computer will sleep but may not wake automatically.`,
+        requiresConfirmation: true,
+        warningMessage:
+          "The wake timer could not be scheduled. If you proceed, you may need to manually wake the computer.",
+      };
+    }
+
+    console.log("[Sleep] Wake timer scheduled successfully");
+
+    // Step 7: Initiate sleep with wake events enabled
+    // SetSuspendState parameters: 0 (sleep, not hibernate), 1 (force), 1 (ENABLE wake events)
+    console.log("[Sleep] Putting computer to sleep with wake events enabled...");
+    exec("rundll32.exe powrprof.dll,SetSuspendState 0,1,1", (error) => {
       if (error) {
-        console.error("[ERROR] Failed to initiate sleep mode:", error);
+        console.error("[Sleep] Failed to initiate sleep mode:", error);
+        // Try to clean up the wake timer if sleep failed
+        deleteWakeTimer().catch((e) =>
+          console.error("[Sleep] Failed to clean up wake timer:", e),
+        );
       }
     });
 
     return {
       success: true,
-      message: "Computer entering sleep mode",
+      message: `Computer entering sleep mode. Will wake at ${wakeTime.toLocaleTimeString()} (${wakeBufferMinutes} min before next action)`,
     };
   } catch (error) {
+    console.error("[Sleep] Error in sleep mode execution:", error);
     return {
       success: false,
       message: `Failed to initiate sleep mode: ${(error as Error).message}`,

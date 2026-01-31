@@ -5,6 +5,7 @@ export interface AppSettings {
   allowMultipleMediaWindows: boolean;
   mediaPlayerWindowTimeout: number; // Timeout in seconds for window operations
   mediaPlayerAutoFocus: boolean;
+  sleepWakeBufferMinutes: number; // Minutes before next action to wake from sleep (2-10)
 }
 
 export type SettingsUpdateDTO = Partial<AppSettings>;

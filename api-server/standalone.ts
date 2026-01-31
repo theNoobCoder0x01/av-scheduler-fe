@@ -11,6 +11,7 @@ import playerControlRouter from "./routes/player-control";
 import playlistsRouter from "./routes/playlists";
 import schedulerRoutes from "./routes/scheduler";
 import settingsRouter from "./routes/settings";
+import systemRouter from "./routes/system";
 
 const app = express();
 const apiServer: Server = createServer(app);
@@ -34,6 +35,7 @@ app.use("/api/playlists", playlistsRouter);
 app.use("/api/media", mediaRouter);
 app.use("/api/files", fileBrowserRouter);
 app.use("/api/player", playerControlRouter);
+app.use("/api/system", systemRouter);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
@@ -59,6 +61,7 @@ app.get("/", (req, res) => {
       media: "/api/media",
       files: "/api/files",
       player: "/api/player",
+      system: "/api/system",
     },
   });
 });
