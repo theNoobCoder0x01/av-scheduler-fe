@@ -129,6 +129,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
       Intl.DateTimeFormat().resolvedOptions().timeZone
   );
   const [maxRetries, setMaxRetries] = useState<number>(2);
+  const [sleepAfterAction, setSleepAfterAction] = useState<boolean>(false);
+  const [sleepDelayMinutes, setSleepDelayMinutes] = useState<number>(2);
 
   // UI state
   const [selectedActions, setSelectedActions] = useState<Set<string>>(
@@ -150,6 +152,13 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   useEffect(() => {
     localStorage.setItem(TIMEZONE_STORAGE_KEY, selectedTimezone);
   }, [selectedTimezone]);
+
+  // Reset sleep configuration when action type changes away from pause/stop
+  useEffect(() => {
+    if (actionType !== "pause" && actionType !== "stop") {
+      setSleepAfterAction(false);
+    }
+  }, [actionType]);
 
   // Fetch sleep capabilities when sleep action is selected
   useEffect(() => {
@@ -303,11 +312,67 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
         }
       }
 
-      await createAction(newAction);
+      const createdAction = await createAction(newAction);
+
+      // Create child sleep action if enabled for pause/stop actions
+      if (
+        sleepAfterAction &&
+        (actionType === "pause" || actionType === "stop") &&
+        createdAction?.id
+      ) {
+        try {
+          // Calculate sleep time (parent time + delay minutes)
+          const timeParts = formattedTime.split(":");
+          const hours = parseInt(timeParts[0]);
+          const minutes = parseInt(timeParts[1]);
+          const seconds = parseInt(timeParts[2]);
+
+          const parentDate = new Date();
+          parentDate.setHours(hours, minutes, seconds, 0);
+
+          const sleepDate = new Date(
+            parentDate.getTime() + sleepDelayMinutes * 60 * 1000
+          );
+          const sleepTime = `${String(sleepDate.getHours()).padStart(2, "0")}:${String(sleepDate.getMinutes()).padStart(2, "0")}:${String(sleepDate.getSeconds()).padStart(2, "0")}`;
+
+          const sleepAction: Omit<ScheduledAction, "id"> = {
+            actionType: "sleep",
+            time: sleepTime,
+            isDaily: newAction.isDaily,
+            timezone: newAction.timezone,
+            maxRetries: newAction.maxRetries,
+            isActive: true,
+            parentActionId: createdAction.id,
+          };
+
+          // For one-time events, set the same event and date
+          if (!isDaily && newAction.eventId && newAction.eventName) {
+            sleepAction.eventId = newAction.eventId;
+            sleepAction.eventName = newAction.eventName;
+            if (newAction.date) {
+              const sleepEventDate = new Date(newAction.date);
+              sleepEventDate.setHours(
+                sleepDate.getHours(),
+                sleepDate.getMinutes(),
+                sleepDate.getSeconds(),
+                0
+              );
+              sleepAction.date = sleepEventDate;
+            }
+          }
+
+          await createAction(sleepAction);
+        } catch (error) {
+          console.error("Error creating child sleep action:", error);
+          // Don't fail the whole operation if sleep action fails
+        }
+      }
 
       // Reset form
       setActionTime("");
       setSelectedEvent("");
+      setSleepAfterAction(false);
+      setSleepDelayMinutes(2);
     } catch (error) {
       console.error("Error scheduling action:", error);
       // Error handling is done by the hook
@@ -730,6 +795,60 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                 </div>
               </div>
 
+              {/* Sleep After Action Configuration (for pause/stop actions) */}
+              {(actionType === "pause" || actionType === "stop") && (
+                <div className="col-span-12">
+                  <div className="rounded-lg bg-muted/50 p-4 border">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="sleep-after-action"
+                        checked={sleepAfterAction}
+                        onCheckedChange={(checked) =>
+                          setSleepAfterAction(checked as boolean)
+                        }
+                      />
+                      <label
+                        htmlFor="sleep-after-action"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        Automatically sleep after this action
+                      </label>
+                    </div>
+
+                    {sleepAfterAction && (
+                      <div className="ml-6 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            Sleep after:
+                          </span>
+                          <Select
+                            value={sleepDelayMinutes.toString()}
+                            onValueChange={(v) =>
+                              setSleepDelayMinutes(parseInt(v))
+                            }
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 minute</SelectItem>
+                              <SelectItem value="2">2 minutes</SelectItem>
+                              <SelectItem value="3">3 minutes</SelectItem>
+                              <SelectItem value="4">4 minutes</SelectItem>
+                              <SelectItem value="5">5 minutes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          A separate sleep action will be created{" "}
+                          {sleepDelayMinutes} minute{sleepDelayMinutes !== 1 ? "s" : ""} after this action. You can delete it separately if needed.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Sleep Mode Capabilities Info */}
               {actionType === "sleep" && (
                 <div className="col-span-12">
@@ -1024,24 +1143,31 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                       <span className="font-mono text-sm">{action.time}</span>
                     </TableCell>
                     <TableCell>
-                      <span className="flex items-center">
-                        {action.actionType === "play" && (
-                          <Play className="mr-2 h-4 w-4 text-green-500" />
+                      <div className="flex flex-col gap-1">
+                        <span className="flex items-center">
+                          {action.actionType === "play" && (
+                            <Play className="mr-2 h-4 w-4 text-green-500" />
+                          )}
+                          {action.actionType === "pause" && (
+                            <Pause className="mr-2 h-4 w-4 text-amber-500" />
+                          )}
+                          {action.actionType === "stop" && (
+                            <Square className="mr-2 h-4 w-4 text-red-500" />
+                          )}
+                          {action.actionType === "sleep" && (
+                            <Moon className="mr-2 h-4 w-4 text-blue-500" />
+                          )}
+                          {action.actionType === "play" && "Start"}
+                          {action.actionType === "pause" && "Play/Pause"}
+                          {action.actionType === "stop" && "Close"}
+                          {action.actionType === "sleep" && "Sleep (Windows)"}
+                        </span>
+                        {action.parentActionId && (
+                          <Badge variant="outline" className="text-xs w-fit">
+                            Auto-sleep
+                          </Badge>
                         )}
-                        {action.actionType === "pause" && (
-                          <Pause className="mr-2 h-4 w-4 text-amber-500" />
-                        )}
-                        {action.actionType === "stop" && (
-                          <Square className="mr-2 h-4 w-4 text-red-500" />
-                        )}
-                        {action.actionType === "sleep" && (
-                          <Moon className="mr-2 h-4 w-4 text-blue-500" />
-                        )}
-                        {action.actionType === "play" && "Start"}
-                        {action.actionType === "pause" && "Play/Pause"}
-                        {action.actionType === "stop" && "Close"}
-                        {action.actionType === "sleep" && "Sleep (Windows)"}
-                      </span>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {action.eventName ? (

@@ -19,9 +19,10 @@ export class SchedulerService {
         sa.max_retries,
         sa.last_run,
         sa.next_run,
+        sa.parent_action_id,
         sa.created_at,
         sa.updated_at
-      FROM scheduled_actions sa 
+      FROM scheduled_actions sa
       LEFT JOIN calendar_events e ON
         e.start <= sa.next_run
         AND e.end >= sa.next_run
@@ -80,8 +81,8 @@ export class SchedulerService {
 
     const dbResponse = await execute(
       `
-        INSERT INTO scheduled_actions (event_id, event_name, action_type, time, date, is_daily, timezone, is_active, retry_count, max_retries, last_run, next_run, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO scheduled_actions (event_id, event_name, action_type, time, date, is_daily, timezone, is_active, retry_count, max_retries, last_run, next_run, parent_action_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.eventId,
@@ -96,6 +97,7 @@ export class SchedulerService {
         data.maxRetries || 3,
         data.lastRun,
         nextRun,
+        data.parentActionId,
         Math.floor(new Date().getTime() / 1000),
         Math.floor(new Date().getTime() / 1000),
       ],
@@ -138,6 +140,7 @@ export class SchedulerService {
                 max_retries = ?,
                 last_run = ?,
                 next_run = ?,
+                parent_action_id = ?,
                 updated_at = ?
             WHERE id = ?
           `,
@@ -154,6 +157,7 @@ export class SchedulerService {
         data.maxRetries || 3,
         data.lastRun,
         data.nextRun,
+        data.parentActionId,
         Math.floor(new Date().getTime() / 1000),
         actionId,
       ],
@@ -233,6 +237,10 @@ export class SchedulerService {
       updateFields.push("next_run = ?");
       updateValues.push(data.nextRun);
     }
+    if (data.parentActionId !== undefined) {
+      updateFields.push("parent_action_id = ?");
+      updateValues.push(data.parentActionId);
+    }
 
     if (updateFields.length) {
       updateFields.push("updated_at = ?");
@@ -282,6 +290,53 @@ export class SchedulerService {
     }
   }
 
+  // Get all child actions for a parent action
+  public static async getChildActions(parentActionId: number) {
+    if (!parentActionId?.toString()?.length) {
+      throw new Error("Parent action ID is required");
+    }
+
+    let dbResponse = await query(
+      `SELECT * FROM scheduled_actions WHERE parent_action_id = ?`,
+      [parentActionId],
+    );
+
+    return this.mapDbResponseToScheduledAction(dbResponse);
+  }
+
+  // Update child action time when parent action time changes
+  public static async updateChildActionTime(
+    parentActionId: number,
+    newParentTime: string,
+    delayMinutes: number,
+  ) {
+    if (!parentActionId?.toString()?.length) {
+      throw new Error("Parent action ID is required");
+    }
+
+    // Parse parent time
+    const timeParts = newParentTime.split(":");
+    const hours = parseInt(timeParts[0]);
+    const minutes = parseInt(timeParts[1]);
+    const seconds = timeParts.length > 2 ? parseInt(timeParts[2]) : 0;
+
+    // Calculate child time (parent time + delay minutes)
+    const parentDate = new Date();
+    parentDate.setHours(hours, minutes, seconds, 0);
+
+    const childDate = new Date(parentDate.getTime() + delayMinutes * 60 * 1000);
+    const childTime = `${String(childDate.getHours()).padStart(2, "0")}:${String(childDate.getMinutes()).padStart(2, "0")}:${String(childDate.getSeconds()).padStart(2, "0")}`;
+
+    // Update all child actions
+    const dbResponse = await execute(
+      `UPDATE scheduled_actions SET time = ?, updated_at = ? WHERE parent_action_id = ?`,
+      [childTime, Math.floor(new Date().getTime() / 1000), parentActionId],
+    );
+
+    await this.updateScheduler();
+    return dbResponse;
+  }
+
   private static mapDbResponseToScheduledAction(dbResponse: any) {
     return dbResponse.map((action: any) => ({
       id: action.id,
@@ -297,6 +352,7 @@ export class SchedulerService {
       maxRetries: action.max_retries,
       lastRun: action.last_run,
       nextRun: action.next_run,
+      parentActionId: action.parent_action_id,
       createdAt: action.created_at,
       updatedAt: action.updated_at,
     }));

@@ -71,10 +71,12 @@ export async function initializeDB() {
         max_retries INTEGER DEFAULT 3,
         last_run INTEGER,
         next_run INTEGER,
+        parent_action_id INTEGER,
         created_at INTEGER DEFAULT (strftime('%s', 'now')),
-        updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+        updated_at INTEGER DEFAULT (strftime('%s', 'now')),
+        FOREIGN KEY (parent_action_id) REFERENCES scheduled_actions(id) ON DELETE CASCADE
     );
-    
+
     CREATE TABLE IF NOT EXISTS calendar_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         summary TEXT,
@@ -89,6 +91,28 @@ export async function initializeDB() {
     );
   `);
 
+  // Run migrations for existing databases
+  await runMigrations(db);
+
   isDBInitialized = true;
   console.log("✅ Database tables initialized");
+}
+
+async function runMigrations(db: Database) {
+  console.log("🔄 Running database migrations...");
+
+  // Check if parent_action_id column exists, if not add it
+  const tableInfo = await db.all("PRAGMA table_info(scheduled_actions)");
+  const hasParentActionId = tableInfo.some(
+    (column: any) => column.name === "parent_action_id"
+  );
+
+  if (!hasParentActionId) {
+    console.log("📝 Adding parent_action_id column to scheduled_actions table");
+    await db.exec(`
+      ALTER TABLE scheduled_actions ADD COLUMN parent_action_id INTEGER;
+    `);
+  }
+
+  console.log("✅ Migrations completed");
 }
