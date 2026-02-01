@@ -1,6 +1,7 @@
 import { ScheduledAction } from "../../models/scheduled-action.model";
 import { execute, query } from "../lib/db";
 import { actionScheduler } from "../lib/scheduler";
+import { refreshWakeTimer } from "../lib/wake-timer-scheduler";
 
 export class SchedulerService {
   public static async getAllScheduledActions() {
@@ -284,9 +285,42 @@ export class SchedulerService {
   private static async updateScheduler() {
     try {
       await actionScheduler.initializeSchedules();
+
+      // Refresh wake timer whenever scheduler is updated
+      await this.refreshWakeTimerForAllActions();
     } catch (error) {
       console.error("❌ Failed to update scheduler:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Refreshes the Windows Task Scheduler wake timer based on all active wake actions.
+   * This should be called whenever wake actions are created, updated, or deleted.
+   */
+  private static async refreshWakeTimerForAllActions() {
+    try {
+      // Get all active wake actions
+      const allActions = await this.getAllScheduledActions();
+      const wakeActions = allActions.filter(
+        (action) => action.isActive && action.actionType === "wake"
+      );
+
+      console.log(`[Scheduler Service] Found ${wakeActions.length} active wake action(s)`);
+
+      // Refresh the wake timer
+      const result = await refreshWakeTimer(wakeActions);
+
+      if (!result.success && result.requiresElevation) {
+        console.warn("[Scheduler Service] Wake timer requires admin privileges:", result.message);
+      } else if (!result.success) {
+        console.error("[Scheduler Service] Failed to refresh wake timer:", result.message);
+      } else {
+        console.log("[Scheduler Service] Wake timer refreshed successfully");
+      }
+    } catch (error) {
+      console.error("[Scheduler Service] Error refreshing wake timer:", error);
+      // Don't throw - wake timer refresh failure shouldn't block scheduler updates
     }
   }
 

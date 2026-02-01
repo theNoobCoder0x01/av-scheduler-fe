@@ -859,12 +859,15 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                         <span>Sleep (Windows)</span>
                       </div>
                     </SelectItem>
-                    <SelectItem value="wake">
-                      <div className="flex items-center">
-                        <Sun className="mr-2 h-4 w-4" />
-                        <span>Wake (Windows)</span>
-                      </div>
-                    </SelectItem>
+                    {/* Only show wake option if auto-wakeup is supported */}
+                    {(sleepCapabilities?.canAutoWakeup || actionType === "wake") && (
+                      <SelectItem value="wake">
+                        <div className="flex items-center">
+                          <Sun className="mr-2 h-4 w-4" />
+                          <span>Wake (Windows)</span>
+                        </div>
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -889,6 +892,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                       <Checkbox
                         id="wake-before-play"
                         checked={wakeBeforeAction}
+                        disabled={sleepCapabilities !== null && !sleepCapabilities.canAutoWakeup}
                         onCheckedChange={(checked) =>
                           handleWakeBeforeChange(checked as boolean)
                         }
@@ -899,6 +903,9 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                       >
                         <Sun className="h-4 w-4 text-yellow-500" />
                         Automatically wake before this action
+                        {sleepCapabilities !== null && !sleepCapabilities.canAutoWakeup && (
+                          <span className="text-xs text-muted-foreground">(not supported)</span>
+                        )}
                       </label>
                     </div>
 
@@ -947,6 +954,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                       <Checkbox
                         id="wake-before-pause"
                         checked={wakeBeforeAction}
+                        disabled={sleepCapabilities !== null && !sleepCapabilities.canAutoWakeup}
                         onCheckedChange={(checked) =>
                           handleWakeBeforeChange(checked as boolean)
                         }
@@ -957,6 +965,9 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                       >
                         <Sun className="h-4 w-4 text-yellow-500" />
                         Automatically wake before this action
+                        {sleepCapabilities !== null && !sleepCapabilities.canAutoWakeup && (
+                          <span className="text-xs text-muted-foreground">(not supported)</span>
+                        )}
                       </label>
                     </div>
 
@@ -1233,8 +1244,9 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                                 to create a sleep/wake schedule.
                               </p>
                             ) : (
-                              <p className="mt-2 text-xs">
-                                Wake timers are not supported on this system.
+                              <p className="mt-2 text-xs font-semibold">
+                                ⚠️ Wake timers are not supported on this system.
+                                The device will NOT wake up automatically at the scheduled time.
                                 You will need to manually wake the computer.
                               </p>
                             )}

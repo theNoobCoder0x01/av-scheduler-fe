@@ -274,3 +274,77 @@ export async function isRunningAsAdmin(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Refreshes the wake timer based on all scheduled wake actions.
+ * This should be called whenever wake actions are created, updated, or deleted.
+ * It finds the next wake action and schedules a Windows Task Scheduler task for it.
+ *
+ * @param wakeActions - Array of all wake actions (should be active only)
+ * @returns Promise<WakeTimerResult>
+ */
+export async function refreshWakeTimer(
+  wakeActions: Array<{ id?: string; nextRun?: number; time: string; isDaily?: boolean; date?: string }>
+): Promise<WakeTimerResult> {
+  try {
+    console.log(`[Wake Timer] Refreshing wake timer with ${wakeActions.length} wake action(s)`);
+
+    // Check if running on Windows
+    if (process.platform !== "win32") {
+      console.log("[Wake Timer] Not on Windows, skipping wake timer refresh");
+      return {
+        success: true,
+        message: "Wake timers are only supported on Windows",
+      };
+    }
+
+    // If no wake actions, delete any existing wake timer
+    if (wakeActions.length === 0) {
+      console.log("[Wake Timer] No wake actions found, deleting any existing wake timer");
+      return await deleteWakeTimer();
+    }
+
+    // Check admin privileges
+    const isAdmin = await isRunningAsAdmin();
+    if (!isAdmin) {
+      console.warn("[Wake Timer] Not running as administrator, cannot manage wake timers");
+      return {
+        success: false,
+        message: "Administrator privileges required to schedule wake timer",
+        requiresElevation: true,
+      };
+    }
+
+    // Find the next wake action after now
+    const now = Date.now() / 1000;
+    const futureWakeActions = wakeActions
+      .filter((action) => action.nextRun && action.nextRun > now)
+      .sort((a, b) => (a.nextRun || 0) - (b.nextRun || 0));
+
+    if (futureWakeActions.length === 0) {
+      console.log("[Wake Timer] No future wake actions scheduled, deleting wake timer");
+      return await deleteWakeTimer();
+    }
+
+    // Schedule wake timer for the next wake action
+    const nextWakeAction = futureWakeActions[0];
+    const wakeTime = new Date((nextWakeAction.nextRun || 0) * 1000);
+
+    console.log(`[Wake Timer] Scheduling wake timer for next wake action at ${wakeTime.toISOString()}`);
+    const result = await scheduleWakeTimer(wakeTime);
+
+    if (result.success) {
+      console.log(`[Wake Timer] Wake timer successfully scheduled for ${wakeTime.toLocaleString()}`);
+    } else {
+      console.error(`[Wake Timer] Failed to schedule wake timer: ${result.message}`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error("[Wake Timer] Error refreshing wake timer:", error);
+    return {
+      success: false,
+      message: `Failed to refresh wake timer: ${(error as Error).message}`,
+    };
+  }
+}
