@@ -68,6 +68,7 @@ import {
   Repeat,
   Settings,
   Square,
+  Sun,
   Trash2,
   XCircle,
   Zap,
@@ -160,9 +161,9 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     }
   }, [actionType]);
 
-  // Fetch sleep capabilities when sleep action is selected
+  // Fetch sleep capabilities when sleep or wake action is selected
   useEffect(() => {
-    if (actionType === "sleep") {
+    if (actionType === "sleep" || actionType === "wake") {
       const fetchSleepCapabilities = async () => {
         setLoadingSleepCapabilities(true);
         try {
@@ -779,6 +780,12 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                         <span>Sleep (Windows)</span>
                       </div>
                     </SelectItem>
+                    <SelectItem value="wake">
+                      <div className="flex items-center">
+                        <Sun className="mr-2 h-4 w-4" />
+                        <span>Wake (Windows)</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -860,6 +867,69 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                       </span>
                     </div>
                   ) : sleepCapabilities ? (
+                    <div className="rounded-lg p-3 border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                      <div className="flex items-start gap-2">
+                        <Moon className="h-4 w-4 mt-0.5 text-blue-600 dark:text-blue-400" />
+                        <div className="flex-1 text-sm">
+                          <p className="font-medium mb-1 text-blue-800 dark:text-blue-200">
+                            Sleep Mode Information
+                          </p>
+                          <div className="space-y-1 text-blue-700 dark:text-blue-300">
+                            <p>
+                              <strong>Sleep Mode:</strong>{" "}
+                              {sleepCapabilities.supportedMode === "S0"
+                                ? `S0 Modern Standby${
+                                    sleepCapabilities.states?.s0?.variant
+                                      ? ` (${sleepCapabilities.states.s0.variant})`
+                                      : ""
+                                  }`
+                                : sleepCapabilities.supportedMode === "S3"
+                                  ? "S3 Traditional Sleep"
+                                  : sleepCapabilities.supportedMode === "S1"
+                                    ? "S1 Sleep"
+                                    : sleepCapabilities.supportedMode === "S2"
+                                      ? "S2 Sleep"
+                                      : sleepCapabilities.supportedMode === "S4"
+                                        ? "S4 Hibernate"
+                                        : "Unknown"}
+                            </p>
+                            <p className="mt-2 text-xs">
+                              This action puts the computer to sleep. To wake automatically,
+                              schedule a separate <strong>Wake</strong> action for the desired wake time.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3 border border-red-200 dark:border-red-800">
+                      <div className="flex items-start gap-2">
+                        <XCircle className="h-4 w-4 mt-0.5 text-red-600" />
+                        <div className="text-sm text-red-700 dark:text-red-300">
+                          <p className="font-medium mb-1">
+                            Unable to detect sleep capabilities
+                          </p>
+                          <p>
+                            Please ensure you are running on Windows and try again.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Wake Mode Capabilities Info */}
+              {actionType === "wake" && (
+                <div className="col-span-12">
+                  {loadingSleepCapabilities ? (
+                    <div className="rounded-lg bg-muted/50 p-3 flex items-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      <span className="text-sm text-muted-foreground">
+                        Detecting wake timer capabilities...
+                      </span>
+                    </div>
+                  ) : sleepCapabilities ? (
                     <div
                       className={cn(
                         "rounded-lg p-3 border",
@@ -884,8 +954,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                             )}
                           >
                             {sleepCapabilities.canAutoWakeup
-                              ? "Auto-Wake Supported"
-                              : "Auto-Wake Not Supported"}
+                              ? "Wake Timer Supported"
+                              : "Wake Timer Not Supported"}
                           </p>
                           <div
                             className={cn(
@@ -895,24 +965,6 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                                 : "text-yellow-700 dark:text-yellow-300"
                             )}
                           >
-                            <p>
-                              <strong>Sleep Mode:</strong>{" "}
-                              {sleepCapabilities.supportedMode === "S0"
-                                ? `S0 Modern Standby${
-                                    sleepCapabilities.states?.s0?.variant
-                                      ? ` (${sleepCapabilities.states.s0.variant})`
-                                      : ""
-                                  }`
-                                : sleepCapabilities.supportedMode === "S3"
-                                  ? "S3 Traditional Sleep"
-                                  : sleepCapabilities.supportedMode === "S1"
-                                    ? "S1 Sleep"
-                                    : sleepCapabilities.supportedMode === "S2"
-                                      ? "S2 Sleep"
-                                      : sleepCapabilities.supportedMode === "S4"
-                                        ? "S4 Hibernate"
-                                        : "Unknown"}
-                            </p>
                             <p>
                               <strong>RTC Wake:</strong>{" "}
                               {sleepCapabilities.supportsRTCWake ? "Yes" : "No"}
@@ -934,13 +986,14 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                               )}
                             {sleepCapabilities.canAutoWakeup ? (
                               <p className="mt-2 text-xs">
-                                The computer will automatically wake before the next
-                                scheduled action.
+                                This action schedules a wake timer that will wake the computer
+                                from sleep at the scheduled time. Use this with a <strong>Sleep</strong> action
+                                to create a sleep/wake schedule.
                               </p>
                             ) : (
                               <p className="mt-2 text-xs">
-                                ⚠️ You will need to manually wake the computer for
-                                scheduled actions to execute.
+                                Wake timers are not supported on this system.
+                                You will need to manually wake the computer.
                               </p>
                             )}
                           </div>
@@ -953,7 +1006,7 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                         <XCircle className="h-4 w-4 mt-0.5 text-red-600" />
                         <div className="text-sm text-red-700 dark:text-red-300">
                           <p className="font-medium mb-1">
-                            Unable to detect sleep capabilities
+                            Unable to detect wake timer capabilities
                           </p>
                           <p>
                             Please ensure you are running on Windows and try again.
@@ -1157,10 +1210,14 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                           {action.actionType === "sleep" && (
                             <Moon className="mr-2 h-4 w-4 text-blue-500" />
                           )}
+                          {action.actionType === "wake" && (
+                            <Sun className="mr-2 h-4 w-4 text-yellow-500" />
+                          )}
                           {action.actionType === "play" && "Start"}
                           {action.actionType === "pause" && "Play/Pause"}
                           {action.actionType === "stop" && "Close"}
                           {action.actionType === "sleep" && "Sleep (Windows)"}
+                          {action.actionType === "wake" && "Wake (Windows)"}
                         </span>
                         {action.parentActionId && (
                           <Badge variant="outline" className="text-xs w-fit">

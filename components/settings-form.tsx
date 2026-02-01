@@ -36,8 +36,6 @@ import {
   Eye,
   Square,
   SkipForward,
-  Moon,
-  Timer,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -126,7 +124,6 @@ export default function SettingsForm() {
       allowMultipleMediaWindows: false,
       mediaPlayerWindowTimeout: 5,
       mediaPlayerAutoFocus: true,
-      sleepWakeBufferMinutes: 3,
     };
 
     setSettings(defaultSettings);
@@ -413,61 +410,6 @@ export default function SettingsForm() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Sleep & Power Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Moon className="h-5 w-5" />
-            Sleep & Power Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="wakeBuffer" className="flex items-center gap-2">
-              <Timer className="h-4 w-4" />
-              Auto-Wake Buffer Time
-            </Label>
-            <Select
-              value={settings?.sleepWakeBufferMinutes?.toString() || "3"}
-              onValueChange={(value) =>
-                updateSetting("sleepWakeBufferMinutes", parseInt(value))
-              }
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2">2 minutes</SelectItem>
-                <SelectItem value="3">3 minutes</SelectItem>
-                <SelectItem value="4">4 minutes</SelectItem>
-                <SelectItem value="5">5 minutes</SelectItem>
-                <SelectItem value="6">6 minutes</SelectItem>
-                <SelectItem value="7">7 minutes</SelectItem>
-                <SelectItem value="8">8 minutes</SelectItem>
-                <SelectItem value="9">9 minutes</SelectItem>
-                <SelectItem value="10">10 minutes</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="rounded-lg bg-muted/50 p-3">
-              <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 mt-0.5 text-blue-500" />
-                <div className="text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground mb-1">
-                    Auto-Wake Buffer Explained
-                  </p>
-                  <p>
-                    When the computer enters sleep mode, it will automatically wake up{" "}
-                    <strong>{settings?.sleepWakeBufferMinutes || 3} minutes</strong>{" "}
-                    before the next scheduled action (play, pause, or stop). This ensures
-                    the system is ready to execute the scheduled task on time.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
         </CardContent>
       </Card>
 

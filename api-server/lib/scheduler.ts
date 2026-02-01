@@ -2,6 +2,7 @@ import { ScheduledAction } from "../../models/scheduled-action.model";
 import { SchedulerService } from "../services/scheduler.service";
 import { controlVlc } from "./vlc-controller";
 import { broadcast } from "./web-socket";
+import { logger } from "./logger";
 
 interface ScheduleEntry {
   id: string;
@@ -58,46 +59,46 @@ class ActionScheduler {
   }
 
   public async initializeSchedules(): Promise<void> {
-    console.log("🔄 Initializing action scheduler...");
-    
+    logger.info("Scheduler", "Initializing action scheduler...");
+
     // Clear existing schedules first
     this.clearAllSchedules();
-    
+
     // Load fresh data from database
     try {
       const dbActions = await SchedulerService.getAllScheduledActions();
       this._activeSchedules = dbActions.filter(action => action.isActive !== false);
-      
-      console.log(`📋 Loaded ${this._activeSchedules.length} active actions from database`);
-      
+
+      logger.info("Scheduler", "Loaded active actions from database", { count: this._activeSchedules.length });
+
       // Handle missed schedules from app restarts
       await this.handleMissedSchedules();
-      
+
       // Schedule each action
       for (const action of this._activeSchedules) {
         await this.scheduleAction(action);
       }
-      
+
       this.isInitialized = true;
       this.persistentState.lastInitialization = Date.now();
       this.savePersistentState();
-      
-      console.log("✅ Scheduler initialized successfully");
+
+      logger.info("Scheduler", "Scheduler initialized successfully");
     } catch (error) {
-      console.error("❌ Failed to initialize scheduler:", error);
+      logger.error("Scheduler", "Failed to initialize scheduler", { error: (error as Error).message });
       throw error;
     }
   }
 
   public async scheduleAction(action: ScheduledAction): Promise<void> {
     if (!action.id) {
-      console.warn("⚠️  Skipping action without ID:", action);
+      logger.warn("Scheduler", "Skipping action without ID", { action });
       return;
     }
 
     // Skip inactive actions
     if (action.isActive === false) {
-      console.log(`⏸️  Skipping inactive action: ${action.id}`);
+      logger.debug("Scheduler", "Skipping inactive action", { actionId: action.id });
       return;
     }
 
@@ -505,7 +506,7 @@ class ActionScheduler {
   }
 
   private async executeAction(action: ScheduledAction): Promise<void> {
-    console.log("⚡ Executing scheduled action:", {
+    logger.info("Scheduler", "Executing scheduled action", {
       id: action.id,
       type: action.actionType,
       name: action.eventName,
@@ -522,11 +523,11 @@ class ActionScheduler {
     }
 
     const result = await controlVlc(action.actionType, action.eventName);
-    console.log("✅ Action executed successfully:", action.actionType);
-    
+    logger.info("Scheduler", "Action executed", { actionType: action.actionType, result: result.message });
+
     const now = Math.floor(Date.now() / 1000);
     const nextRun = action.isDaily ? now + 24 * 60 * 60 : undefined;
-    
+
     // Update database with execution time
     await SchedulerService.patchScheduledAction(parseInt(action.id), {
       lastRun: now,
@@ -544,7 +545,7 @@ class ActionScheduler {
       result,
     });
 
-    console.log(`📈 Updated action ${action.id} with lastRun: ${now}, nextRun: ${nextRun}`);
+    logger.debug("Scheduler", "Updated action timestamps", { actionId: action.id, lastRun: now, nextRun });
   }
 
   private cleanupStaleEntries(): void {

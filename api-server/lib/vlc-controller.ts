@@ -16,6 +16,7 @@ import {
   deleteWakeTimer,
 } from "./wake-timer-scheduler";
 import { SchedulerService } from "../services/scheduler.service";
+import { logger } from "./logger";
 
 let vlcProcess: ChildProcess | null = null;
 let currentPlaylist: string | null = null;
@@ -577,6 +578,10 @@ async function executeSleepCommand(): Promise<void> {
   }
 }
 
+/**
+ * Simplified sleep function - just puts the computer to sleep.
+ * Wake scheduling is now handled separately via the wake action.
+ */
 async function sleepWindows(): Promise<{
   success: boolean;
   message: string;
@@ -585,18 +590,19 @@ async function sleepWindows(): Promise<{
   warningMessage?: string;
 }> {
   try {
-    console.log("[Sleep] Initiating Windows sleep mode with auto-wake capability");
+    logger.info("Sleep", "Initiating Windows sleep mode");
 
     // Check if running on Windows
     if (process.platform !== "win32") {
+      logger.warn("Sleep", "Sleep mode not supported on this platform", { platform: process.platform });
       return {
         success: false,
         message: "Sleep mode is only supported on Windows operating systems",
       };
     }
 
-    // Step 1: Detect sleep capabilities
-    console.log("[Sleep] Detecting sleep mode capabilities...");
+    // Detect sleep capabilities for logging purposes
+    logger.debug("Sleep", "Detecting sleep mode capabilities...");
     const capabilities = await getSleepCapabilities();
 
     // Format sleep mode name with variant
@@ -618,19 +624,78 @@ async function sleepWindows(): Promise<{
       return mode;
     };
 
-    console.log("[Sleep] Detected capabilities:", {
+    logger.info("Sleep", "Detected sleep capabilities", {
       mode: getSleepModeName(),
       rtcWake: capabilities.supportsRTCWake,
       canAutoWake: capabilities.canAutoWakeup,
       wakeDevices: capabilities.wakeArmedDevices?.length || 0,
-      requiresAdmin: capabilities.requiresAdminForWakeTimers,
     });
 
-    // Step 2: Check if auto-wakeup is supported
-    if (!capabilities.canAutoWakeup) {
-      const sleepModeName = getSleepModeName();
-      let reason = "";
+    // Execute sleep command
+    logger.info("Sleep", "Putting computer to sleep...");
+    try {
+      await executeSleepCommand();
+      logger.info("Sleep", "Sleep command executed successfully");
+      return {
+        success: true,
+        message: "Computer entering sleep mode",
+      };
+    } catch (error) {
+      logger.error("Sleep", "Failed to execute sleep command", { error: (error as Error).message });
+      return {
+        success: false,
+        message: `Failed to initiate sleep mode: ${(error as Error).message}`,
+      };
+    }
+  } catch (error) {
+    logger.error("Sleep", "Error in sleep mode execution", { error: (error as Error).message });
+    return {
+      success: false,
+      message: `Failed to initiate sleep mode: ${(error as Error).message}`,
+    };
+  }
+}
 
+/**
+ * Schedules a wake timer for the computer.
+ * This creates a Windows Task Scheduler task that will wake the computer at the scheduled time.
+ */
+async function wakeWindows(): Promise<{
+  success: boolean;
+  message: string;
+  requiresElevation?: boolean;
+  wakeTime?: Date;
+}> {
+  try {
+    logger.info("Wake", "Scheduling wake timer");
+
+    // Check if running on Windows
+    if (process.platform !== "win32") {
+      logger.warn("Wake", "Wake timer not supported on this platform", { platform: process.platform });
+      return {
+        success: false,
+        message: "Wake timers are only supported on Windows operating systems",
+      };
+    }
+
+    // Check admin privileges
+    const isAdmin = await isRunningAsAdmin();
+    logger.debug("Wake", "Admin privileges check", { isAdmin });
+
+    if (!isAdmin) {
+      logger.warn("Wake", "Not running as administrator");
+      return {
+        success: false,
+        message: "Administrator privileges required to schedule wake timer. Please run the application as Administrator.",
+        requiresElevation: true,
+      };
+    }
+
+    // Check sleep capabilities
+    const capabilities = await getSleepCapabilities();
+
+    if (!capabilities.canAutoWakeup) {
+      let reason = "";
       if (!capabilities.supportsRTCWake) {
         reason = "RTC wake timers are not supported on this system.";
       } else if (capabilities.requiresAdminForWakeTimers) {
@@ -639,123 +704,63 @@ async function sleepWindows(): Promise<{
         reason = "Auto-wake capability could not be verified.";
       }
 
-      console.warn(
-        "[Sleep] Auto-wakeup is not supported on this system",
-        `(Mode: ${sleepModeName}, RTC Wake: ${capabilities.supportsRTCWake}, Reason: ${reason})`,
-      );
-
-      // Return a warning that requires user confirmation
+      logger.warn("Wake", "Auto-wake not supported", { reason });
       return {
         success: false,
-        message: `Sleep mode detected: ${sleepModeName}. Auto-wake is not supported. ${reason}`,
-        requiresConfirmation: true,
-        warningMessage:
-          "If you proceed with sleep, the computer will NOT wake up automatically before the next scheduled action. You will need to manually wake it up for scheduled tasks to execute.",
+        message: `Wake timer cannot be scheduled: ${reason}`,
       };
     }
 
-    // Step 3: Get next scheduled action (excluding sleep actions)
-    console.log("[Sleep] Finding next scheduled action...");
+    // Get the action's scheduled time - the wake timer should fire AT this action's time
+    // Since this is the wake action itself, we need to get the current action's next run time
+    // For now, we schedule the wake timer for "now" - meaning when this action triggers,
+    // the wake timer task is created to wake the system at the scheduled wake action time
+
+    // The wake action itself IS the scheduled wake time - when this action's scheduler fires,
+    // the computer should already be awake (the wake timer triggers the wake)
+    // So we need to schedule the wake timer for the NEXT occurrence of this action
+
+    // Get all wake actions to find the next one
     const allActions = await SchedulerService.getAllScheduledActions();
-    const activeNonSleepActions = allActions.filter(
-      (action) => action.isActive && action.actionType !== "sleep",
+    const wakeActions = allActions.filter(
+      (action) => action.isActive && action.actionType === "wake",
     );
 
-    if (activeNonSleepActions.length === 0) {
-      console.log(
-        "[Sleep] No active non-sleep actions scheduled. Proceeding with sleep without wake timer.",
-      );
-
-      // No wake timer needed, just sleep
-      try {
-        await executeSleepCommand();
-        return {
-          success: true,
-          message:
-            "Computer entering sleep mode (no wake timer needed - no upcoming actions)",
-        };
-      } catch (error) {
-        return {
-          success: false,
-          message: `Failed to initiate sleep mode: ${(error as Error).message}`,
-        };
-      }
-    }
-
-    // Get the next action by next_run time
-    const nextAction = activeNonSleepActions.reduce((earliest, current) => {
-      if (!earliest) return current;
-      return (current.nextRun || 0) < (earliest.nextRun || 0)
-        ? current
-        : earliest;
-    });
-
-    console.log("[Sleep] Next scheduled action:", {
-      id: nextAction.id,
-      type: nextAction.actionType,
-      nextRun: nextAction.nextRun,
-      nextRunDate: nextAction.nextRun
-        ? new Date(nextAction.nextRun * 1000).toISOString()
-        : "unknown",
-    });
-
-    // Step 4: Calculate wake time based on settings
-    const settings = getSettings();
-    const wakeBufferMinutes = settings.sleepWakeBufferMinutes || 3;
-
-    if (!nextAction.nextRun) {
-      console.warn("[Sleep] Next action has no nextRun time, cannot schedule wake timer");
-
-      try {
-        await executeSleepCommand();
-        return {
-          success: true,
-          message: "Computer entering sleep mode (no valid wake time available)",
-        };
-      } catch (error) {
-        return {
-          success: false,
-          message: `Failed to initiate sleep mode: ${(error as Error).message}`,
-        };
-      }
-    }
-
-    // Calculate wake time (nextRun is in seconds since epoch)
-    const nextActionTime = new Date(nextAction.nextRun * 1000);
-    const wakeTime = new Date(
-      nextActionTime.getTime() - wakeBufferMinutes * 60 * 1000,
-    );
-
-    console.log("[Sleep] Calculated wake time:", {
-      nextActionTime: nextActionTime.toISOString(),
-      wakeBufferMinutes,
-      wakeTime: wakeTime.toISOString(),
-    });
-
-    // Step 5: Check admin privileges
-    const isAdmin = await isRunningAsAdmin();
-    console.log("[Sleep] Running as admin:", isAdmin);
-
-    if (!isAdmin) {
-      console.warn(
-        "[Sleep] Not running as administrator - wake timer may fail to schedule",
-      );
+    if (wakeActions.length === 0) {
+      logger.info("Wake", "No active wake actions found, wake timer set for immediate");
       return {
-        success: false,
-        message:
-          "Administrator privileges required to schedule auto-wake timer. Please run the application as Administrator.",
-        requiresElevation: true,
+        success: true,
+        message: "Wake action executed - system is awake",
       };
     }
 
-    // Step 6: Schedule wake timer
-    console.log(
-      `[Sleep] Scheduling wake timer for ${wakeTime.toLocaleString()}...`,
-    );
+    // Find the next wake action after now
+    const now = Date.now() / 1000;
+    const futureWakeActions = wakeActions
+      .filter((action) => action.nextRun && action.nextRun > now)
+      .sort((a, b) => (a.nextRun || 0) - (b.nextRun || 0));
+
+    if (futureWakeActions.length === 0) {
+      logger.info("Wake", "No future wake actions scheduled");
+      return {
+        success: true,
+        message: "Wake action executed - system is awake. No future wake timers to schedule.",
+      };
+    }
+
+    // Schedule wake timer for the next wake action
+    const nextWakeAction = futureWakeActions[0];
+    const wakeTime = new Date((nextWakeAction.nextRun || 0) * 1000);
+
+    logger.info("Wake", "Scheduling wake timer", {
+      wakeTime: wakeTime.toISOString(),
+      actionId: nextWakeAction.id,
+    });
+
     const wakeResult = await scheduleWakeTimer(wakeTime);
 
     if (!wakeResult.success) {
-      console.error("[Sleep] Failed to schedule wake timer:", wakeResult.message);
+      logger.error("Wake", "Failed to schedule wake timer", { message: wakeResult.message });
 
       if (wakeResult.requiresElevation) {
         return {
@@ -765,45 +770,23 @@ async function sleepWindows(): Promise<{
         };
       }
 
-      // Wake timer failed but we can still sleep without it
       return {
         success: false,
-        message: `Wake timer scheduling failed: ${wakeResult.message}. Computer will sleep but may not wake automatically.`,
-        requiresConfirmation: true,
-        warningMessage:
-          "The wake timer could not be scheduled. If you proceed, you may need to manually wake the computer.",
+        message: `Failed to schedule wake timer: ${wakeResult.message}`,
       };
     }
 
-    console.log("[Sleep] Wake timer scheduled successfully");
-
-    // Step 7: Initiate sleep with wake events enabled
-    console.log("[Sleep] Putting computer to sleep with wake events enabled...");
-    try {
-      await executeSleepCommand();
-      return {
-        success: true,
-        message: `Computer entering sleep mode. Will wake at ${wakeTime.toLocaleTimeString()} (${wakeBufferMinutes} min before next action)`,
-      };
-    } catch (error) {
-      // Try to clean up the wake timer if sleep failed
-      try {
-        await deleteWakeTimer();
-        console.log("[Sleep] Wake timer cleaned up after sleep failure");
-      } catch (cleanupError) {
-        console.error("[Sleep] Failed to clean up wake timer:", cleanupError);
-      }
-
-      return {
-        success: false,
-        message: `Failed to initiate sleep mode: ${(error as Error).message}. Wake timer has been removed.`,
-      };
-    }
+    logger.info("Wake", "Wake timer scheduled successfully", { wakeTime: wakeTime.toISOString() });
+    return {
+      success: true,
+      message: `Wake timer scheduled for ${wakeTime.toLocaleTimeString()}`,
+      wakeTime,
+    };
   } catch (error) {
-    console.error("[Sleep] Error in sleep mode execution:", error);
+    logger.error("Wake", "Error scheduling wake timer", { error: (error as Error).message });
     return {
       success: false,
-      message: `Failed to initiate sleep mode: ${(error as Error).message}`,
+      message: `Failed to schedule wake timer: ${(error as Error).message}`,
     };
   }
 }
@@ -813,35 +796,34 @@ export async function controlVlc(
   playlistName?: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log(
-      "🎮 Controlling media with action:",
-      action,
-      "for playlist:",
-      playlistName,
-    );
+    logger.info("Controller", "Controlling media", { action, playlistName });
 
     // For daily actions, we need to find the current event
     if (!playlistName) {
       const currentEvent = await getCurrentEvent();
-      console.log("Current event: " + currentEvent);
+      logger.debug("Controller", "Current event lookup", { event: currentEvent?.summary });
       if (!currentEvent && action === "play") {
+        logger.warn("Controller", "No active event found for play action");
         return {
           success: false,
           message: "No active event found for the current time",
         };
       }
       playlistName = currentEvent?.summary;
-      console.log("Playlist name by current event: " + playlistName);
     }
 
-    console.log("🎮 Final playlist name:", playlistName);
+    logger.debug("Controller", "Final playlist name", { playlistName });
 
     // Get settings to determine player mode
     const settings = getSettings();
     const playerMode = settings.playerMode || "vlc";
 
-    console.log("🎮 Using player mode:", playerMode);
-    console.log("🎮 Window behavior:", settings.mediaPlayerWindowBehavior);
+    logger.info("Controller", "Executing action", {
+      action,
+      playerMode,
+      playlistName,
+      windowBehavior: settings.mediaPlayerWindowBehavior
+    });
 
     let result: { success: boolean; message: string };
 
@@ -870,11 +852,22 @@ export async function controlVlc(
       case "sleep":
         result = await sleepWindows();
         break;
+      case "wake":
+        result = await wakeWindows();
+        break;
       default:
+        logger.warn("Controller", "Unknown action type", { action });
         result = {
           success: false,
           message: `Unknown action: ${action}`,
         };
+    }
+
+    // Log the result
+    if (result.success) {
+      logger.info("Controller", "Action executed successfully", { action, result: result.message });
+    } else {
+      logger.error("Controller", "Action failed", { action, result: result.message });
     }
 
     // Broadcast the result for monitoring
@@ -889,7 +882,7 @@ export async function controlVlc(
 
     return result;
   } catch (error: Error | any) {
-    console.error("❌ Error controlling media:", error);
+    logger.error("Controller", "Error controlling media", { action, error: error.message });
 
     const errorResult = {
       success: false,

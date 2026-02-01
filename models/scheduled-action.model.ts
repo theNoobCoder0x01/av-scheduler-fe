@@ -1,4 +1,4 @@
-export type ActionType = "play" | "pause" | "stop" | "sleep";
+export type ActionType = "play" | "pause" | "stop" | "sleep" | "wake";
 
 export interface ScheduledAction {
   id?: string;
