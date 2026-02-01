@@ -132,6 +132,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
   const [maxRetries, setMaxRetries] = useState<number>(2);
   const [sleepAfterAction, setSleepAfterAction] = useState<boolean>(false);
   const [sleepDelayMinutes, setSleepDelayMinutes] = useState<number>(2);
+  const [wakeBeforeAction, setWakeBeforeAction] = useState<boolean>(false);
+  const [wakeBeforeMinutes, setWakeBeforeMinutes] = useState<number>(3);
 
   // UI state
   const [selectedActions, setSelectedActions] = useState<Set<string>>(
@@ -154,16 +156,37 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
     localStorage.setItem(TIMEZONE_STORAGE_KEY, selectedTimezone);
   }, [selectedTimezone]);
 
-  // Reset sleep configuration when action type changes away from pause/stop
+  // Reset sleep/wake configuration when action type changes
   useEffect(() => {
+    // Reset sleep-after for non-pause/stop actions
     if (actionType !== "pause" && actionType !== "stop") {
       setSleepAfterAction(false);
     }
+    // Reset wake-before for non-play/pause actions
+    if (actionType !== "play" && actionType !== "pause") {
+      setWakeBeforeAction(false);
+    }
   }, [actionType]);
 
-  // Fetch sleep capabilities when sleep or wake action is selected
+  // Handle mutual exclusivity for pause action (can't have both wake-before and sleep-after)
+  const handleWakeBeforeChange = (checked: boolean) => {
+    setWakeBeforeAction(checked);
+    if (checked && actionType === "pause") {
+      setSleepAfterAction(false);
+    }
+  };
+
+  const handleSleepAfterChange = (checked: boolean) => {
+    setSleepAfterAction(checked);
+    if (checked && actionType === "pause") {
+      setWakeBeforeAction(false);
+    }
+  };
+
+  // Fetch sleep capabilities when sleep, wake, play, or pause action is selected
+  // (play and pause can have wake-before option)
   useEffect(() => {
-    if (actionType === "sleep" || actionType === "wake") {
+    if (actionType === "sleep" || actionType === "wake" || actionType === "play" || actionType === "pause") {
       const fetchSleepCapabilities = async () => {
         setLoadingSleepCapabilities(true);
         try {
@@ -315,6 +338,60 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
 
       const createdAction = await createAction(newAction);
 
+      // Create child wake action if enabled for play/pause actions
+      if (
+        wakeBeforeAction &&
+        (actionType === "play" || actionType === "pause") &&
+        createdAction?.id
+      ) {
+        try {
+          // Calculate wake time (parent time - wake_before_minutes)
+          const timeParts = formattedTime.split(":");
+          const hours = parseInt(timeParts[0]);
+          const minutes = parseInt(timeParts[1]);
+          const seconds = parseInt(timeParts[2]);
+
+          const parentDate = new Date();
+          parentDate.setHours(hours, minutes, seconds, 0);
+
+          const wakeDate = new Date(
+            parentDate.getTime() - wakeBeforeMinutes * 60 * 1000
+          );
+          const wakeTime = `${String(wakeDate.getHours()).padStart(2, "0")}:${String(wakeDate.getMinutes()).padStart(2, "0")}:${String(wakeDate.getSeconds()).padStart(2, "0")}`;
+
+          const wakeAction: Omit<ScheduledAction, "id"> = {
+            actionType: "wake",
+            time: wakeTime,
+            isDaily: newAction.isDaily,
+            timezone: newAction.timezone,
+            maxRetries: newAction.maxRetries,
+            isActive: true,
+            parentActionId: createdAction.id,
+          };
+
+          // For one-time events, set the same event and date
+          if (!isDaily && newAction.eventId && newAction.eventName) {
+            wakeAction.eventId = newAction.eventId;
+            wakeAction.eventName = newAction.eventName;
+            if (newAction.date) {
+              const wakeEventDate = new Date(newAction.date);
+              wakeEventDate.setHours(
+                wakeDate.getHours(),
+                wakeDate.getMinutes(),
+                wakeDate.getSeconds(),
+                0
+              );
+              wakeAction.date = wakeEventDate;
+            }
+          }
+
+          await createAction(wakeAction);
+        } catch (error) {
+          console.error("Error creating child wake action:", error);
+          // Don't fail the whole operation if wake action fails
+        }
+      }
+
       // Create child sleep action if enabled for pause/stop actions
       if (
         sleepAfterAction &&
@@ -374,6 +451,8 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
       setSelectedEvent("");
       setSleepAfterAction(false);
       setSleepDelayMinutes(2);
+      setWakeBeforeAction(false);
+      setWakeBeforeMinutes(3);
     } catch (error) {
       console.error("Error scheduling action:", error);
       // Error handling is done by the hook
@@ -802,22 +881,185 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                 </div>
               </div>
 
-              {/* Sleep After Action Configuration (for pause/stop actions) */}
-              {(actionType === "pause" || actionType === "stop") && (
+              {/* Wake Before Action Configuration (for play action only) */}
+              {actionType === "play" && (
                 <div className="col-span-12">
                   <div className="rounded-lg bg-muted/50 p-4 border">
                     <div className="flex items-center space-x-2 mb-3">
                       <Checkbox
-                        id="sleep-after-action"
-                        checked={sleepAfterAction}
+                        id="wake-before-play"
+                        checked={wakeBeforeAction}
                         onCheckedChange={(checked) =>
-                          setSleepAfterAction(checked as boolean)
+                          handleWakeBeforeChange(checked as boolean)
                         }
                       />
                       <label
-                        htmlFor="sleep-after-action"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        htmlFor="wake-before-play"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
                       >
+                        <Sun className="h-4 w-4 text-yellow-500" />
+                        Automatically wake before this action
+                      </label>
+                    </div>
+
+                    {wakeBeforeAction && (
+                      <div className="ml-6 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            Wake before:
+                          </span>
+                          <Select
+                            value={wakeBeforeMinutes.toString()}
+                            onValueChange={(v) =>
+                              setWakeBeforeMinutes(parseInt(v))
+                            }
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="2">2 minutes</SelectItem>
+                              <SelectItem value="3">3 minutes</SelectItem>
+                              <SelectItem value="4">4 minutes</SelectItem>
+                              <SelectItem value="5">5 minutes</SelectItem>
+                              <SelectItem value="10">10 minutes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          A separate wake action will be created{" "}
+                          {wakeBeforeMinutes} minute{wakeBeforeMinutes !== 1 ? "s" : ""} before this action. You can delete it separately if needed.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Pause Action Configuration (exclusive: either wake-before OR sleep-after) */}
+              {actionType === "pause" && (
+                <div className="col-span-12">
+                  <div className="rounded-lg bg-muted/50 p-4 border">
+                    <p className="text-sm font-medium mb-3">Power Options (select one)</p>
+
+                    {/* Wake Before Option */}
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="wake-before-pause"
+                        checked={wakeBeforeAction}
+                        onCheckedChange={(checked) =>
+                          handleWakeBeforeChange(checked as boolean)
+                        }
+                      />
+                      <label
+                        htmlFor="wake-before-pause"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
+                      >
+                        <Sun className="h-4 w-4 text-yellow-500" />
+                        Automatically wake before this action
+                      </label>
+                    </div>
+
+                    {wakeBeforeAction && (
+                      <div className="ml-6 mb-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            Wake before:
+                          </span>
+                          <Select
+                            value={wakeBeforeMinutes.toString()}
+                            onValueChange={(v) =>
+                              setWakeBeforeMinutes(parseInt(v))
+                            }
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="2">2 minutes</SelectItem>
+                              <SelectItem value="3">3 minutes</SelectItem>
+                              <SelectItem value="4">4 minutes</SelectItem>
+                              <SelectItem value="5">5 minutes</SelectItem>
+                              <SelectItem value="10">10 minutes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          A separate wake action will be created{" "}
+                          {wakeBeforeMinutes} minute{wakeBeforeMinutes !== 1 ? "s" : ""} before this action.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Sleep After Option */}
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="sleep-after-pause"
+                        checked={sleepAfterAction}
+                        onCheckedChange={(checked) =>
+                          handleSleepAfterChange(checked as boolean)
+                        }
+                      />
+                      <label
+                        htmlFor="sleep-after-pause"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
+                      >
+                        <Moon className="h-4 w-4 text-blue-500" />
+                        Automatically sleep after this action
+                      </label>
+                    </div>
+
+                    {sleepAfterAction && (
+                      <div className="ml-6 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            Sleep after:
+                          </span>
+                          <Select
+                            value={sleepDelayMinutes.toString()}
+                            onValueChange={(v) =>
+                              setSleepDelayMinutes(parseInt(v))
+                            }
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 minute</SelectItem>
+                              <SelectItem value="2">2 minutes</SelectItem>
+                              <SelectItem value="3">3 minutes</SelectItem>
+                              <SelectItem value="4">4 minutes</SelectItem>
+                              <SelectItem value="5">5 minutes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          A separate sleep action will be created{" "}
+                          {sleepDelayMinutes} minute{sleepDelayMinutes !== 1 ? "s" : ""} after this action.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Sleep After Action Configuration (for stop action only) */}
+              {actionType === "stop" && (
+                <div className="col-span-12">
+                  <div className="rounded-lg bg-muted/50 p-4 border">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Checkbox
+                        id="sleep-after-stop"
+                        checked={sleepAfterAction}
+                        onCheckedChange={(checked) =>
+                          handleSleepAfterChange(checked as boolean)
+                        }
+                      />
+                      <label
+                        htmlFor="sleep-after-stop"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
+                      >
+                        <Moon className="h-4 w-4 text-blue-500" />
                         Automatically sleep after this action
                       </label>
                     </div>
@@ -1219,9 +1461,14 @@ export default function ScheduleCreator({ events }: ScheduleCreatorProps) {
                           {action.actionType === "sleep" && "Sleep (Windows)"}
                           {action.actionType === "wake" && "Wake (Windows)"}
                         </span>
-                        {action.parentActionId && (
+                        {action.parentActionId && action.actionType === "sleep" && (
                           <Badge variant="outline" className="text-xs w-fit">
                             Auto-sleep
+                          </Badge>
+                        )}
+                        {action.parentActionId && action.actionType === "wake" && (
+                          <Badge variant="outline" className="text-xs w-fit">
+                            Auto-wake
                           </Badge>
                         )}
                       </div>
